@@ -1,0 +1,554 @@
+/**
+ * Si soft delet proposer hard delte dans le front
+ */
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+///////////////////////////////
+/////     Better Auth     /////
+///////////////////////////////
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime? // soft delete
+
+  // Relations
+  sessions      Session[]
+  accounts      Account[]
+  profile       Profile?
+  tasks         Task[]
+  groupMembers  GroupMember[]
+  ownedProjects Project[]     @relation("OwnedProjects")
+  articles      Article[]     @relation("ArticleAuthor")
+  comments      Comment[]
+  likes         Like[]
+  favorites     Favorite[]
+
+  @@index([deletedAt])
+  @@map("user")
+}
+
+model Session {
+  id             String   @id @default(cuid())
+  expiresAt      DateTime
+  token          String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?
+  userAgent      String?
+  userId         String
+  impersonatedBy String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+
+  @@map("verification")
+}
+
+////////////////////////
+/////     user     /////
+////////////////////////
+
+model Profile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  displayOrder Int      @default(0)
+  name         String
+  bio          String?
+  phone        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([displayOrder])
+  @@map("profil")
+}
+
+/////////////////////////////////////////
+/////     Organisation et group     /////
+/////////////////////////////////////////
+
+model Group {
+  id           String    @id @default(cuid())
+  parentId     String? // === null => ORGANIZATION
+  displayOrder Int       @default(0)
+  type         String // ORGANIZATION | DEPARTEMENT | WORKGROUP | SECURITYGROUP
+  name         String
+  roles        Role[]
+  slug         String    @unique
+  description  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime? // soft delete
+
+  // Self-relation (hiérarchie)
+  parent   Group?  @relation("GroupHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Group[] @relation("GroupHierarchy")
+
+  // Membres
+  members GroupMember[]
+
+  @@index([parentId])
+  @@index([type])
+  @@index([displayOrder])
+  @@index([deletedAt])
+  @@map("groups")
+}
+
+model Role {
+  id           String @id @default(cuid())
+  name         String // OWNER | ADMIN | MANAGER | PRODUCT_OWNER | DESIGNER | DEVELOPER | QA | DEVOPS | CONTRIBUTOR | VIEWER
+  groupId      String
+  displayOrder Int    @default(0)
+
+  group       Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  permissions Permission[]
+
+  @@index([groupId])
+  @@index([displayOrder])
+  @@map("role")
+}
+
+// Table de jointure User ↔ Group (many-to-many avec rôle dans le groupe)
+model GroupMember {
+  id           String   @id @default(cuid())
+  groupId      String
+  userId       String
+  displayOrder Int      @default(0)
+  joinedAt     DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([groupId])
+  @@index([userId])
+  @@index([displayOrder])
+  @@map("group_member")
+}
+
+model Permission {
+  id           String @id @default(cuid())
+  name         String
+  displayOrder Int    @default(0)
+  roles        Role[]
+
+  @@index([displayOrder])
+  @@map("permission")
+}
+
+//////////////////////////////
+/////     Conception     /////
+//////////////////////////////
+
+model Project {
+  id           String    @id @default(cuid())
+  displayOrder Int       @default(0)
+  name         String
+  slug         String    @unique
+  tagline      String? // phrase d'accroche, une ligne qui résume le projet
+  description  String
+  ownerId      String
+  status       String    @default("planned") // planned | wip | done | deprecated
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime? // soft delete
+
+  features Feature[]
+  personas Persona[]
+
+  userStories UserStory[]
+  sprints     Sprint[]
+
+  users User[] @relation("OwnedProjects")
+
+  @@index([ownerId])
+  @@index([displayOrder])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("project")
+}
+
+model Feature {
+  id           String   @id @default(cuid())
+  projectId    String
+  displayOrder Int      @default(0)
+  name         String
+  slug         String   @unique
+  description  String
+  module       String // vision | conception | backlog | dev | qualite | communication | equipe | securite
+  icon         String?
+  accent       String? // violet | cyan | amber | emerald | rose
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([displayOrder])
+  @@index([module])
+  @@map("feature")
+}
+
+model Persona {
+  id           String    @id @default(cuid())
+  projectId    String?
+  displayOrder Int       @default(0)
+  slug         String    @unique
+  name         String
+  value        String?
+  keywords     String? // JSON.stringify(string[])
+  icon         String?
+  accent       String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime? // soft delete
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([displayOrder])
+  @@index([deletedAt])
+  @@map("persona")
+}
+
+/////////////////////////
+/////     Scrum     /////
+/////////////////////////
+
+// Un Epic = une UserStory sans parent (parentId === null).
+// Une UserStory = un enfant d'un Epic (parentId !== null).
+// Le même modèle porte les deux niveaux.
+
+model UserStory {
+  id                 String  @id @default(cuid())
+  parentId           String? // === null => Epic
+  slug               String  @unique
+  displayOrder       Int     @default(0)
+  title              String
+  personaRef         String? // appName du persona concerné
+  asA                String
+  iWant              String
+  soThat             String
+  status             String  @default("backlog") // backlog | ready | in-progress | review | done
+  priority           Int     @default(5) // 1 (urgent) à 10 (optionnel)
+  storyPoints        Int?
+  accent             String?
+  projectId          String
+  sprintId           String?
+  // Listes sérialisées en JSON (SQLite n'a pas de type array) A DISCUTER
+  acceptanceCriteria String? // JSON.stringify(AcceptanceCriterion[])
+  dodChecked         String? // JSON.stringify(string[])
+  linkedFiles        String? // JSON.stringify(string[])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // soft delete
+
+  parent   UserStory?  @relation("StoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children UserStory[] @relation("StoryHierarchy")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  sprint Sprint? @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  tasks  Task[]
+
+  @@index([parentId])
+  @@index([displayOrder])
+  @@index([priority])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("user_story")
+}
+
+model Sprint {
+  id             String    @id @default(cuid())
+  displayOrder   Int       @default(0)
+  projectId      String
+  name           String
+  slug           String    @unique
+  goal           String
+  startDate      DateTime
+  endDate        DateTime
+  durationWeeks  Int       @default(2)
+  status         String    @default("planned") // planned | composed | active | completed | cancelled
+  capacityPoints Int       @default(0)
+  velocity       Int?
+  notes          String?
+  accent         String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime? // soft delete
+
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userstories UserStory[]
+
+  @@index([displayOrder])
+  @@index([status])
+  @@index([startDate])
+  @@index([deletedAt])
+  @@map("sprint")
+}
+
+model Task {
+  id            String   @id @default(cuid())
+  userStoryId   String
+  displayOrder  Int      @default(0)
+  title         String
+  description   String
+  assigneeId    String?
+  estimateHours Int      @default(0)
+  status        String   @default("todo") // todo | in-progress | review | done | blocked
+  blockedBy     String? // JSON.stringify(string[])
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  UserStory UserStory @relation(fields: [userStoryId], references: [id], onDelete: Cascade)
+  assignee  User?     @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([userStoryId])
+  @@index([assigneeId])
+  @@index([displayOrder])
+  @@index([status])
+  @@map("task")
+}
+
+/////////////////////////
+/////      Blog     /////
+/////////////////////////
+
+enum TaxonomyType {
+  THEME
+  CATEGORY
+  SUBCATEGORY
+}
+
+enum ContentType {
+  MARKDOWN
+  HTML
+}
+
+enum ArticleStatus {
+  DRAFT
+  PENDING_EDIT
+  PENDING_MODERATION
+  PUBLISHED
+  REJECTED
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+// ─────────────────────────────────────────────────────────────
+// Taxonomie
+// ─────────────────────────────────────────────────────────────
+
+model Taxonomy {
+  id           String       @id @default(cuid())
+  name         String
+  slug         String       @unique
+  description  String?
+  type         TaxonomyType
+  parentId     String?
+  displayOrder Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  parent   Taxonomy?  @relation("TaxonomyTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children Taxonomy[] @relation("TaxonomyTree")
+  articles Article[]
+
+  @@index([parentId, displayOrder])
+  @@index([type])
+  @@map("taxonomy")
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  articles Article[]
+
+  @@map("tag")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Article
+// ─────────────────────────────────────────────────────────────
+
+model Article {
+  id            String        @id @default(cuid())
+  title         String
+  slug          String        @unique
+  authorId      String
+  subCategoryId String
+  status        ArticleStatus @default(DRAFT)
+  allowComments Boolean       @default(true)
+  displayStyle  Json?
+  likesCount    Int           @default(0)
+  publishedAt   DateTime?
+  deletedAt     DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  author      User           @relation("ArticleAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  subCategory Taxonomy       @relation(fields: [subCategoryId], references: [id], onDelete: Restrict)
+  contents    ContentBlock[]
+  medias      Media[]
+  tags        Tag[]
+  comments    Comment[]
+  likes       Like[]
+  favorites   Favorite[]
+
+  @@index([status, publishedAt])
+  @@index([authorId])
+  @@index([subCategoryId])
+  @@index([deletedAt])
+  @@map("article")
+}
+
+model ContentBlock {
+  id           String      @id @default(cuid())
+  articleId    String
+  parentId     String?
+  contentType  ContentType @default(MARKDOWN)
+  body         String
+  displayOrder Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  article  Article        @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  parent   ContentBlock?  @relation("ContentTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children ContentBlock[] @relation("ContentTree")
+
+  @@index([articleId, parentId, displayOrder])
+  @@map("article_content")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Médias
+// ─────────────────────────────────────────────────────────────
+
+model Media {
+  id           String    @id @default(cuid())
+  articleId    String
+  url          String
+  key          String?
+  type         MediaType @default(IMAGE)
+  altText      String?
+  displayOrder Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId, displayOrder])
+  @@map("media")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Interactions
+// ─────────────────────────────────────────────────────────────
+
+model Comment {
+  id         String    @id @default(cuid())
+  articleId  String
+  authorId   String
+  parentId   String?
+  content    String
+  likesCount Int       @default(0)
+  deletedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  article Article   @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  author  User      @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  parent  Comment?  @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies Comment[] @relation("CommentThread")
+  likes   Like[]
+
+  @@index([articleId, parentId, createdAt])
+  @@index([authorId])
+  @@map("comment")
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  userId    String
+  articleId String?
+  commentId String?
+  createdAt DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article Article? @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  comment Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, articleId])
+  @@unique([userId, commentId])
+  @@index([articleId])
+  @@index([commentId])
+  @@map("likes")
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  articleId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, articleId])
+  @@index([articleId])
+  @@map("favorite")
+}
