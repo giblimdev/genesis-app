@@ -17,10 +17,12 @@ GROUPE « Classification »
 ───────────────────────────────────────────
 
 ## path — requis
-
+## tag — requis
+tableau de valeur permet de trier les fichier. le tag reflète le plus souvant la / les user story
 ## projectId — requis 
 Ne pas laisser vide : écrire projectId: <à fournir> en attendant.
-## type — requis : Nature du fichier. exemple de Valeurs : layout | page | component | action | route | helper | store | config ...
+## type — requis : Nature du fichier. 
+exemple de Valeurs : layout | page | component | action | route | helper | store | config | page d'entré ...
 
 ## generic — optionnel — Booléen, défaut false.
 true si le fichier est réutilisable au-delà de son module (composant UI transverse, utilitaire, type partagé).
@@ -57,11 +59,11 @@ Fichiers fonctionellement liés directement — CHEMINS COMPLETS.
 Format :   ["@/app/auth/login/page.tsx", "@/components/auth/LoginForm.tsx"]
 
 ## imports — requis
-Imports  (libs npm, constante, fonction,  PROPS). 
-Format : [@/**]
+Imports  (libs npm, constante, fonction,  PROPS). tous ce que le script import ou recois (props, parametres)
+Format : JSON.stringify(string[])
 
 ## exports — requis
-Éléments exportés (fonctions, consts, types).
+Éléments exportés (fonctions, consts, types, parametre et props ). tous ce que le script expose ou transmet
 Format : JSON.stringify(string[])
 
 ## useBy —  requis
@@ -95,8 +97,10 @@ EXEMPLE CONFORME
 
 
 /*
-path :         
+path : ["auth", "form"]   
                            app/auth/login/page.tsx
+
+tag : auth
 
 type:            page
   generic:         false

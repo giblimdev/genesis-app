@@ -188,7 +188,7 @@ model Project {
   id           String    @id @default(cuid())
   displayOrder Int       @default(0)
   name         String
-  slug         String    @unique
+  slug         String
   tagline      String? // phrase d'accroche, une ligne qui résume le projet
   description  String
   ownerId      String
@@ -217,7 +217,7 @@ model Feature {
   projectId    String
   displayOrder Int      @default(0)
   name         String
-  slug         String   @unique
+  slug         String
   description  String
   module       String // vision | conception | backlog | dev | qualite | communication | equipe | securite
   icon         String?
@@ -237,7 +237,7 @@ model Persona {
   id           String    @id @default(cuid())
   projectId    String?
   displayOrder Int       @default(0)
-  slug         String    @unique
+  slug         String
   name         String
   value        String?
   keywords     String? // JSON.stringify(string[])
@@ -266,7 +266,7 @@ model Persona {
 model UserStory {
   id                 String  @id @default(cuid())
   parentId           String? // === null => Epic
-  slug               String  @unique
+  slug               String
   displayOrder       Int     @default(0)
   title              String
   personaRef         String? // appName du persona concerné
@@ -309,7 +309,7 @@ model Sprint {
   displayOrder   Int       @default(0)
   projectId      String
   name           String
-  slug           String    @unique
+  slug           String
   goal           String
   startDate      DateTime
   endDate        DateTime

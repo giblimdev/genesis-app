@@ -1,0 +1,42 @@
+{
+  "roots": [
+    "app",
+    "components",
+    "lib",
+    "utils",
+    "store",
+    "prisma",
+    "hooks"
+  ],
+  "excludes": [
+    "node_modules",
+    ".next",
+    ".turbo",
+    "dist",
+    "build",
+    "coverage",
+    "components/ui",
+    "prisma/generated",
+    "generated",
+    "lib/generated"
+  ],
+  "includeExtensions": [
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".json",
+    ".prisma",
+    ".md",
+    ".css"
+  ],
+  "excludePatterns": [
+    ".test.ts",
+    ".test.tsx",
+    ".spec.ts",
+    ".spec.tsx",
+    ".d.ts"
+  ],
+  "maxFiles": 999,
+  "maxBytes": 52428800
+}

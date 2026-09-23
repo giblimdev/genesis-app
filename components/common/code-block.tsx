@@ -31,7 +31,7 @@ scriptChecked:   ✔false
 "use client";
 // "use client" justifié : importe CopyButton qui utilise useState + navigator.clipboard.
 
-import CopyButton from "@/components/common/CopyButton";
+import { CopyButton } from "@/components/common/CopyButton";
 
 export type CodeBlockProps = {
   label: string;

@@ -7,7 +7,7 @@ generic:        false
 role:           Page des outils de développement (R&D) : accès aux feature flags, DevTools et autres outils internes.
 flow:           Rendu statique de la page → affichage du titre et de la liste des outils R&D.
 ecosystem:      DevHelp = [
-                  "@/app/r&d/page.tsx",
+                  "@/app/back-studio/page.tsx",
                 ]
 relatedFiles:   []
 imports:        []
