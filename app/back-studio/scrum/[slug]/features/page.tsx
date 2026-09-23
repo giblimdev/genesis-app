@@ -6,16 +6,15 @@ generic:         false
 
 role:            Liste des features d'un projet. Affiche toutes les features triées par
                  displayOrder. Point d'entrée du CRUD Feature.
-flow:            Server Component async → params → prisma.project.findUnique({ slug })
-                 → si absent/soft-deleted : notFound() → prisma.feature.findMany →
-                 grille de <FeatureCard /> ou <EmptyState />.
+flow:            Server Component async → params → findFirst({ slug, deletedAt: null })
+                 → si absent : notFound() → prisma.feature.findMany({ projectId })
+                 → grille de <FeatureCard /> ou <EmptyState />.
 ecosystem:       Dev = [
                    "@/app/back-studio/scrum/[slug]/features/page.tsx",
                    "@/app/back-studio/scrum/[slug]/features/new/page.tsx",
                    "@/components/feature/FeatureCard.tsx",
                  ]
-relatedFiles:    ["@/components/feature/FeatureCard.tsx",
-                  "@/app/back-studio/scrum/[slug]/page.tsx"]
+relatedFiles:    ["@/components/feature/FeatureCard.tsx"]
 imports:         ["next", "next/link", "next/navigation", "lucide-react",
                   "@/lib/prisma",
                   "@/components/ui/button",
@@ -48,8 +47,8 @@ export async function generateMetadata({
   params: Params;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const project = await prisma.project.findUnique({
-    where: { slug },
+  const project = await prisma.project.findFirst({
+    where: { slug, deletedAt: null },
     select: { name: true },
   });
   return {
@@ -64,11 +63,11 @@ export default async function FeaturesListPage({
 }) {
   const { slug } = await params;
 
-  const project = await prisma.project.findUnique({
-    where: { slug },
-    select: { id: true, name: true, slug: true, deletedAt: true },
+  const project = await prisma.project.findFirst({
+    where: { slug, deletedAt: null },
+    select: { id: true, name: true, slug: true },
   });
-  if (!project || project.deletedAt) notFound();
+  if (!project) notFound();
 
   const features = await prisma.feature.findMany({
     where: { projectId: project.id },

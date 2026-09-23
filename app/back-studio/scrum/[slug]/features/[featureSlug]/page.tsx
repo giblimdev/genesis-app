@@ -6,9 +6,8 @@ generic:         false
 
 role:            Page de détail d'une feature : infos complètes + actions Éditer et
                  Supprimer (avec redirection vers la liste après suppression).
-flow:            Server Component async → params → findUnique({ slug }) pour le projet,
-                 puis findUnique({ slug: featureSlug }) pour la feature → notFound si
-                 absent ou si la feature n'appartient pas au projet.
+flow:            Server Component async → params → findFirst projet + findFirst
+                 feature (via projectId + slug) → notFound si absent.
 ecosystem:       Dev = [
                    "@/app/back-studio/scrum/[slug]/features/[featureSlug]/page.tsx",
                  ]
@@ -45,11 +44,19 @@ export async function generateMetadata({
 }: {
   params: Params;
 }): Promise<Metadata> {
-  const { featureSlug } = await params;
-  const feature = await prisma.feature.findUnique({
-    where: { slug: featureSlug },
-    select: { name: true, description: true },
+  const { slug, featureSlug } = await params;
+
+  const project = await prisma.project.findFirst({
+    where: { slug, deletedAt: null },
+    select: { id: true },
   });
+  if (!project) return { title: "Feature introuvable" };
+
+  const feature = await prisma.feature.findFirst({
+    where: { projectId: project.id, slug: featureSlug },
+    select: { name: true },
+  });
+
   return feature
     ? { title: `${feature.name} — Feature` }
     : { title: "Feature introuvable" };
@@ -62,16 +69,16 @@ export default async function FeatureDetailPage({
 }) {
   const { slug, featureSlug } = await params;
 
-  const project = await prisma.project.findUnique({
-    where: { slug },
-    select: { id: true, name: true, slug: true, deletedAt: true },
+  const project = await prisma.project.findFirst({
+    where: { slug, deletedAt: null },
+    select: { id: true, name: true, slug: true },
   });
-  if (!project || project.deletedAt) notFound();
+  if (!project) notFound();
 
-  const feature = await prisma.feature.findUnique({
-    where: { slug: featureSlug },
+  const feature = await prisma.feature.findFirst({
+    where: { projectId: project.id, slug: featureSlug },
   });
-  if (!feature || feature.projectId !== project.id) notFound();
+  if (!feature) notFound();
 
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6 md:py-12">
@@ -131,6 +138,10 @@ export default async function FeatureDetailPage({
     </main>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/*  Meta (interne)                                                     */
+/* ------------------------------------------------------------------ */
 
 function Meta({ label, value }: { label: string; value: string }) {
   return (

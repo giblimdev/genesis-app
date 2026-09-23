@@ -4,11 +4,10 @@ projectId:       <à fournir>
 type:            page
 generic:         false
 
-role:            Page d'édition d'un projet. Charge le projet par slug puis rend
-                 <ProjectForm mode="edit" />.
-flow:            Server Component async → params → findUnique({ slug }) →
-                 si absent ou soft-deleted : notFound() → <ProjectForm mode="edit"
-                 initialData={...} />.
+role:            Page d'édition d'un projet. Charge le projet par slug via findFirst
+                 puis rend <ProjectForm mode="edit" />.
+flow:            Server Component async → params → findFirst({ slug, deletedAt: null })
+                 → si absent : notFound() → <ProjectForm mode="edit" />.
 ecosystem:       Dev = [
                    "@/app/back-studio/scrum/[slug]/edit/page.tsx",
                    "@/components/project/ProjectForm.tsx",
@@ -45,8 +44,8 @@ export const metadata: Metadata = {
 export default async function EditProjectPage({ params }: { params: Params }) {
   const { slug } = await params;
 
-  const project = await prisma.project.findUnique({
-    where: { slug },
+  const project = await prisma.project.findFirst({
+    where: { slug, deletedAt: null },
     select: {
       id: true,
       name: true,
@@ -54,11 +53,10 @@ export default async function EditProjectPage({ params }: { params: Params }) {
       tagline: true,
       description: true,
       status: true,
-      deletedAt: true,
     },
   });
 
-  if (!project || project.deletedAt) notFound();
+  if (!project) notFound();
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 md:py-12">

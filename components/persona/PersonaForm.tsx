@@ -1,24 +1,26 @@
 /*
-path :           components/feature/FeatureForm.tsx
+path :           components/persona/PersonaForm.tsx
 projectId:       <à fournir>
 type:            component
 generic:         false
 
-role:            Formulaire de création / édition d'une feature. Utilise
-                 react-hook-form + zodResolver(createFeatureSchema). Le slug est
-                 auto-suggéré depuis le nom tant que l'utilisateur ne l'a pas édité.
-                 Utilise AccentPicker pour le champ accent.
-flow:            Client Component → useForm → onSubmit → createFeature() ou
-                 updateFeature() → succès : toast + router.push vers la feature.
+role:            Formulaire de création / édition d'un persona. Utilise react-hook-form
+                 + zodResolver(createPersonaSchema). Le slug est auto-suggéré depuis le
+                 nom tant que l'utilisateur ne l'a pas édité. Les keywords sont saisis
+                 sous forme de chaîne séparée par des virgules, puis convertis côté
+                 action via parseKeywordsInput + stringifyKeywords.
+flow:            Client Component → useForm → onSubmit → createPersona() ou
+                 updatePersona() → succès : toast + router.push vers le persona.
 ecosystem:       Dev = [
-                   "@/app/back-studio/scrum/[slug]/features/new/page.tsx",
-                   "@/app/back-studio/scrum/[slug]/features/[featureSlug]/edit/page.tsx",
-                   "@/components/feature/FeatureForm.tsx",
+                   "@/app/back-studio/scrum/[slug]/personas/new/page.tsx",
+                   "@/app/back-studio/scrum/[slug]/personas/[personaSlug]/edit/page.tsx",
+                   "@/components/persona/PersonaForm.tsx",
                  ]
-relatedFiles:    ["@/app/actions/feature/createFeature.ts",
-                  "@/app/actions/feature/updateFeature.ts",
-                  "@/lib/validations/feature.ts",
-                  "@/components/common/AccentPicker.tsx"]
+relatedFiles:    ["@/app/actions/persona/createPersona.ts",
+                  "@/app/actions/persona/updatePersona.ts",
+                  "@/lib/validations/persona.ts",
+                  "@/components/common/AccentPicker.tsx",
+                  "@/utils/keywords"]
 imports:         ["react", "next/link", "next/navigation",
                   "react-hook-form", "@hookform/resolvers/zod",
                   "zod", "lucide-react", "sonner",
@@ -27,13 +29,13 @@ imports:         ["react", "next/link", "next/navigation",
                   "@/components/ui/field",
                   "@/components/ui/input",
                   "@/components/common/AccentPicker",
-                  "@/app/actions/feature/createFeature",
-                  "@/app/actions/feature/updateFeature",
-                  "@/lib/validations/feature",
-                  "@/lib/utils/slugify"]
-exports:         ["FeatureForm", "FeatureFormProps"]
+                  "@/app/actions/persona/createPersona",
+                  "@/app/actions/persona/updatePersona",
+                  "@/lib/validations/persona",
+                  "@/utils/slugify", "@/utils/keywords"]
+exports:         ["PersonaForm", "PersonaFormProps"]
 
-userStories:     ["*en tant que développeur je veux saisir une feature dans un formulaire"]
+userStories:     ["*en tant que développeur je veux saisir un persona dans un formulaire"]
 status:          planned
 pathChecked:     ✘false
 metaDataChecked: ✘false
@@ -56,60 +58,42 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { AccentPicker } from "@/components/common/AccentPicker";
-import { createFeature } from "@/app/actions/feature/createFeature";
-import { updateFeature } from "@/app/actions/feature/updateFeature";
+import { createPersona } from "@/app/actions/persona/createPersona";
+import { updatePersona } from "@/app/actions/persona/updatePersona";
 import {
-  FEATURE_MODULES,
-  FEATURE_MODULE_LABELS,
-  FEATURE_ACCENTS,
-  createFeatureSchema,
-  type CreateFeatureInput,
-  type FeatureAccent,
-  type FeatureModule,
-} from "@/lib/validations/feature";
+  PERSONA_ACCENTS,
+  createPersonaSchema,
+  type CreatePersonaInput,
+  type PersonaAccent,
+} from "@/lib/validations/persona";
 import { slugify } from "@/utils/slugify";
+import { parseKeywordsJson } from "@/utils/keywords";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-type FeatureFormValues = z.input<typeof createFeatureSchema>;
-type FeatureFormOutput = CreateFeatureInput;
+type PersonaFormValues = z.input<typeof createPersonaSchema>;
+type PersonaFormOutput = CreatePersonaInput;
 
-/** Valeur d'accent autorisée par le formulaire (union + ""). */
-type AccentValue = FeatureAccent | "";
+type AccentValue = PersonaAccent | "";
 
 /* ------------------------------------------------------------------ */
-/*  Helpers de narrowing                                               */
+/*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-/**
- * Normalise une valeur arbitraire (venant de la DB par ex.) en AccentValue.
- * Renvoie "" si la valeur n'est pas un accent connu.
- */
 function toAccentValue(v: string | null | undefined): AccentValue {
   if (!v) return "";
-  return (FEATURE_ACCENTS as readonly string[]).includes(v)
-    ? (v as FeatureAccent)
+  return (PERSONA_ACCENTS as readonly string[]).includes(v)
+    ? (v as PersonaAccent)
     : "";
-}
-
-/**
- * Normalise un module arbitraire en FeatureModule.
- * Renvoie "conception" (défaut) si inconnu.
- */
-function toModuleValue(v: string | null | undefined): FeatureModule {
-  if (!v) return "conception";
-  return (FEATURE_MODULES as readonly string[]).includes(v)
-    ? (v as FeatureModule)
-    : "conception";
 }
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
 /* ------------------------------------------------------------------ */
 
-export type FeatureFormProps =
+export type PersonaFormProps =
   | {
       readonly mode: "create";
       readonly projectId: string;
@@ -123,8 +107,8 @@ export type FeatureFormProps =
         readonly id: string;
         readonly name: string;
         readonly slug: string;
-        readonly description: string;
-        readonly module: string;
+        readonly value: string | null;
+        readonly keywords: string | null;
         readonly icon: string | null;
         readonly accent: string | null;
       };
@@ -134,7 +118,7 @@ export type FeatureFormProps =
 /*  Composant                                                          */
 /* ------------------------------------------------------------------ */
 
-export function FeatureForm(props: FeatureFormProps) {
+export function PersonaForm(props: PersonaFormProps) {
   const router = useRouter();
   const isEdit = props.mode === "edit";
   const [formError, setFormError] = useState<string | null>(null);
@@ -142,19 +126,24 @@ export function FeatureForm(props: FeatureFormProps) {
 
   const initial = isEdit ? props.initialData : null;
 
+  /* Conversion du JSON keywords en chaîne séparée par des virgules. */
+  const initialKeywordsInput = initial
+    ? parseKeywordsJson(initial.keywords).join(", ")
+    : "";
+
   const {
     control,
     handleSubmit,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<FeatureFormValues, unknown, FeatureFormOutput>({
-    resolver: zodResolver(createFeatureSchema),
+  } = useForm<PersonaFormValues, unknown, PersonaFormOutput>({
+    resolver: zodResolver(createPersonaSchema),
     defaultValues: {
       projectId: props.projectId,
       name: initial?.name ?? "",
       slug: initial?.slug ?? "",
-      description: initial?.description ?? "",
-      module: toModuleValue(initial?.module),
+      value: initial?.value ?? "",
+      keywordsInput: initialKeywordsInput,
       icon: initial?.icon ?? "",
       accent: toAccentValue(initial?.accent),
     },
@@ -170,19 +159,21 @@ export function FeatureForm(props: FeatureFormProps) {
     }
   }, [watchedName, slugTouched, setValue]);
 
-  async function onSubmit(values: FeatureFormOutput) {
+  async function onSubmit(values: PersonaFormOutput) {
     setFormError(null);
 
     const payload = {
       ...values,
       slug: values.slug?.trim() || "",
+      value: values.value?.trim() || "",
+      keywordsInput: values.keywordsInput?.trim() || "",
       icon: values.icon?.trim() || "",
       accent: values.accent?.trim() || "",
     };
 
     const result = isEdit
-      ? await updateFeature({ id: props.initialData.id, ...payload })
-      : await createFeature(payload);
+      ? await updatePersona({ id: props.initialData.id, ...payload })
+      : await createPersona(payload);
 
     if (!result.success) {
       setFormError(result.error);
@@ -193,9 +184,9 @@ export function FeatureForm(props: FeatureFormProps) {
       return;
     }
 
-    toast.success(isEdit ? "Feature mise à jour." : "Feature créée.");
+    toast.success(isEdit ? "Persona mis à jour." : "Persona créé.");
     router.push(
-      `/back-studio/scrum/${props.projectSlug}/features/${result.data.slug}`,
+      `/back-studio/scrum/${props.projectSlug}/personas/${result.data.slug}`,
     );
     router.refresh();
   }
@@ -215,16 +206,16 @@ export function FeatureForm(props: FeatureFormProps) {
 
       {/* Nom */}
       <Field data-invalid={errors.name ? "" : undefined}>
-        <FieldLabel htmlFor="feature-name">Nom de la feature</FieldLabel>
+        <FieldLabel htmlFor="persona-name">Nom du persona</FieldLabel>
         <Controller
           control={control}
           name="name"
           render={({ field }) => (
             <Input
               {...field}
-              id="feature-name"
+              id="persona-name"
               autoComplete="off"
-              placeholder="Authentification email / mot de passe"
+              placeholder="CTO pressé"
               className="h-11"
               aria-invalid={errors.name ? true : undefined}
             />
@@ -237,7 +228,7 @@ export function FeatureForm(props: FeatureFormProps) {
 
       {/* Slug */}
       <Field data-invalid={errors.slug ? "" : undefined}>
-        <FieldLabel htmlFor="feature-slug">Slug (URL)</FieldLabel>
+        <FieldLabel htmlFor="persona-slug">Slug (URL)</FieldLabel>
         <Controller
           control={control}
           name="slug"
@@ -245,10 +236,10 @@ export function FeatureForm(props: FeatureFormProps) {
             <Input
               {...field}
               value={field.value ?? ""}
-              id="feature-slug"
+              id="persona-slug"
               autoComplete="off"
               spellCheck={false}
-              placeholder="auth-email-password"
+              placeholder="cto-presse"
               className="h-11 font-mono text-sm"
               onChange={(e) => {
                 setSlugTouched(true);
@@ -266,58 +257,70 @@ export function FeatureForm(props: FeatureFormProps) {
         )}
       </Field>
 
-      {/* Description */}
-      <Field data-invalid={errors.description ? "" : undefined}>
-        <FieldLabel htmlFor="feature-description">Description</FieldLabel>
+      {/* Valeur */}
+      <Field data-invalid={errors.value ? "" : undefined}>
+        <FieldLabel htmlFor="persona-value">
+          Valeur{" "}
+          <span className="font-normal normal-case text-muted-foreground/70">
+            (une ligne, optionnel)
+          </span>
+        </FieldLabel>
         <Controller
           control={control}
-          name="description"
+          name="value"
           render={({ field }) => (
-            <textarea
+            <Input
               {...field}
-              id="feature-description"
-              rows={5}
-              spellCheck={false}
-              placeholder="Objectifs fonctionnels, périmètre, dépendances…"
-              className="rounded-md border border-border bg-background px-3 py-2 text-sm leading-relaxed text-foreground outline-none focus:ring-1 focus:ring-primary/50"
-              aria-invalid={errors.description ? true : undefined}
+              value={field.value ?? ""}
+              id="persona-value"
+              autoComplete="off"
+              placeholder="Décide vite, veut des résultats concrets"
+              className="h-11"
+              aria-invalid={errors.value ? true : undefined}
             />
           )}
         />
-        {errors.description?.message && (
-          <FieldError errors={[{ message: errors.description.message }]} />
+        {errors.value?.message && (
+          <FieldError errors={[{ message: errors.value.message }]} />
         )}
       </Field>
 
-      {/* Module */}
-      <Field data-invalid={errors.module ? "" : undefined}>
-        <FieldLabel htmlFor="feature-module">Module</FieldLabel>
+      {/* Keywords */}
+      <Field data-invalid={errors.keywordsInput ? "" : undefined}>
+        <FieldLabel htmlFor="persona-keywords">
+          Mots-clés{" "}
+          <span className="font-normal normal-case text-muted-foreground/70">
+            (séparés par des virgules)
+          </span>
+        </FieldLabel>
         <Controller
           control={control}
-          name="module"
+          name="keywordsInput"
           render={({ field }) => (
-            <select
+            <Input
               {...field}
-              value={field.value ?? "conception"}
-              id="feature-module"
-              className="h-11 rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none focus:ring-1 focus:ring-primary/50"
-            >
-              {FEATURE_MODULES.map((m) => (
-                <option key={m} value={m}>
-                  {FEATURE_MODULE_LABELS[m]}
-                </option>
-              ))}
-            </select>
+              value={field.value ?? ""}
+              id="persona-keywords"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="autonomie, ROI, rapidité"
+              className="h-11"
+              aria-invalid={errors.keywordsInput ? true : undefined}
+            />
           )}
         />
-        {errors.module?.message && (
-          <FieldError errors={[{ message: errors.module.message }]} />
+        <p className="text-xs text-muted-foreground">
+          Ex.&nbsp;: <code className="font-mono">autonomie, ROI, rapidité</code>.
+          Les doublons sont supprimés automatiquement.
+        </p>
+        {errors.keywordsInput?.message && (
+          <FieldError errors={[{ message: errors.keywordsInput.message }]} />
         )}
       </Field>
 
       {/* Icône */}
       <Field data-invalid={errors.icon ? "" : undefined}>
-        <FieldLabel htmlFor="feature-icon">
+        <FieldLabel htmlFor="persona-icon">
           Icône{" "}
           <span className="font-normal normal-case text-muted-foreground/70">
             (nom lucide-react, optionnel)
@@ -330,10 +333,10 @@ export function FeatureForm(props: FeatureFormProps) {
             <Input
               {...field}
               value={field.value ?? ""}
-              id="feature-icon"
+              id="persona-icon"
               autoComplete="off"
               spellCheck={false}
-              placeholder="ShieldCheck, Sparkles, Database…"
+              placeholder="Briefcase, Rocket, Heart…"
               className="h-11 font-mono text-sm"
               aria-invalid={errors.icon ? true : undefined}
             />
@@ -369,8 +372,8 @@ export function FeatureForm(props: FeatureFormProps) {
         <Link
           href={
             isEdit
-              ? `/back-studio/scrum/${props.projectSlug}/features/${props.initialData.slug}`
-              : `/back-studio/scrum/${props.projectSlug}/features`
+              ? `/back-studio/scrum/${props.projectSlug}/personas/${props.initialData.slug}`
+              : `/back-studio/scrum/${props.projectSlug}/personas`
           }
           className={buttonVariants({ variant: "outline" })}
         >
@@ -384,7 +387,7 @@ export function FeatureForm(props: FeatureFormProps) {
             </>
           ) : (
             <>
-              {isEdit ? "Enregistrer" : "Créer la feature"}
+              {isEdit ? "Enregistrer" : "Créer le persona"}
               <ArrowRight className="size-4" aria-hidden />
             </>
           )}

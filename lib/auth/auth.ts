@@ -1,21 +1,49 @@
-// src/lib/auth/auth.ts
 /*
-  role:           Configuration BetterAuth côté serveur : adapter Prisma,
-                  email/mot de passe, OAuth GitHub et Google.
+path :           lib/auth/auth.ts
+projectId:       <à fournir>
+type:            config
+generic:         true
 
-  flow:           Importé par app/api/auth/[...all]/route.ts et les
-                  helpers serveur (getSession). Ne jamais importer côté
-                  client.
+role:            Configuration Better Auth côté serveur : adapter Prisma, email +
+                 mot de passe, OAuth GitHub et Google (optionnels selon env). Expose
+                 la constante `auth` et le type `Session` dérivé.
 
-  imports:        better-auth, @better-auth/prisma-adapter, better-auth/next-js,
-                  @/lib/prisma, @/lib/env.
+flow:            Importé par app/api/auth/[...all]/route.ts et lib/auth/session.ts.
+                 Ne jamais importer côté client (protégé par "server-only").
+                 Le plugin nextCookies() doit rester en DERNIER dans la liste.
 
-  structure:      - constante auth
-                  - type Session
+ecosystem:       Auth = [
+                   "@/app/api/auth/[...all]/route.ts",
+                   "@/app/auth/login/LoginForm.tsx",
+                   "@/app/auth/login/page.tsx",
+                   "@/app/auth/register/RegisterForm.tsx",
+                   "@/app/auth/register/page.tsx",
+                   "@/components/auth/PasswordInput.tsx",
+                   "@/components/auth/PasswordStrength.tsx",
+                   "@/lib/auth/auth-client.ts",
+                   "@/lib/auth/auth.ts",
+                   "@/lib/auth/session.ts",
+                   "@/lib/validations/auth.ts",
+                 ]
+relatedFiles:    ["@/app/api/auth/[...all]/route.ts",
+                  "@/lib/auth/session.ts",
+                  "@/lib/prisma.ts",
+                  "@/lib/env.ts"]
+imports:         ["server-only",
+                  "better-auth",
+                  "@better-auth/prisma-adapter",
+                  "better-auth/next-js",
+                  "@/lib/prisma",
+                  "@/lib/env"]
+exports:         ["auth", "Session"]
+useBy:           ["@/app/api/auth/[...all]/route.ts",
+                  "@/lib/auth/session.ts"]
 
-  ecosysteme:     Auth
-
-  usedBy:         app/api/auth/[...all]/route.ts, lib/auth/session.ts.
+userStories:     ["*en tant qu'utilisateur je veux que l'authentification soit configurée côté serveur"]
+status:          planned
+pathChecked:     ✘false
+metaDataChecked: ✘false
+scriptChecked:   ✘false
 */
 
 import "server-only";

@@ -5,11 +5,12 @@ type:            action
 generic:         false
 
 role:            Server Action de création d'un projet. Vérifie la session, valide
-                 le payload, garantit l'unicité du slug, calcule le displayOrder,
+                 le payload, garantit l'unicité du slug via findFirst (le schéma
+                 n'a plus @unique sur Project.slug), calcule le displayOrder,
                  connecte le créateur (ownerId + relation OwnedProjects).
 flow:            createProject(input) → getSession() → createProjectSchema.safeParse
-                 → boucle d'unicité du slug (suffixe -2, -3…) → aggregate max
-                 displayOrder → prisma.project.create → revalidatePath("/back-studio/scrum").
+                 → findFreeSlug (findFirst) → aggregate max displayOrder →
+                 prisma.project.create → revalidatePath("/back-studio/scrum").
 ecosystem:       Dev = [
                    "@/app/actions/project/createProject.ts",
                    "@/lib/validations/project.ts",
@@ -21,7 +22,7 @@ relatedFiles:    ["@/lib/prisma.ts", "@/lib/auth/session.ts",
 imports:         ["server-only", "next/cache",
                   "@/lib/prisma", "@/lib/auth/session",
                   "@/lib/validations/project", "@/lib/actions/types",
-                  "@/lib/utils/slugify"]
+                  "@/utils/slugify"]
 exports:         ["createProject"]
 
 userStories:     ["*en tant que développeur je veux créer un projet"]
@@ -42,17 +43,21 @@ import { slugifyWithFallback } from "@/utils/slugify";
 import type { ActionResult } from "@/lib/actions/types";
 
 /* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
+/*  Unicité applicative du slug (findFirst)                            */
 /* ------------------------------------------------------------------ */
+
+async function isSlugTaken(slug: string): Promise<boolean> {
+  const existing = await prisma.project.findFirst({
+    where: { slug, deletedAt: null },
+    select: { id: true },
+  });
+  return existing !== null;
+}
 
 async function findFreeSlug(base: string): Promise<string> {
   let candidate = base;
   for (let i = 2; i <= 999; i++) {
-    const existing = await prisma.project.findUnique({
-      where: { slug: candidate },
-      select: { id: true },
-    });
-    if (!existing) return candidate;
+    if (!(await isSlugTaken(candidate))) return candidate;
     candidate = `${base}-${i}`;
   }
   return `${base}-${Date.now()}`;

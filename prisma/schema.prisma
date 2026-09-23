@@ -240,7 +240,7 @@ model Persona {
   slug         String
   name         String
   value        String?
-  keywords     String? // JSON.stringify(string[])
+  keywords     String? // JSON.stringify(string[]) quels cas d'usage ?
   icon         String?
   accent       String?
   createdAt    DateTime  @default(now())

@@ -4,24 +4,24 @@ projectId:       <à fournir>
 type:            page
 generic:         false
 
-role:            Page de détail d'un projet. Affiche les informations complètes et les
-                 compteurs ; prépare les liens vers les sous-routes (features, personas,
-                 backlog, sprints).
-flow:            Server Component async → params → prisma.project.findUnique({ slug })
-                 → si absent ou soft-deleted : notFound() → affichage + actions
-                 (Éditer, Supprimer).
+role:            Page de détail d'un projet. Affiche les informations complètes,
+                 la grille des 4 modules (via <ProjectModulesGrid />) et les actions
+                 principales (Éditer, Supprimer).
+flow:            Server Component async → params → findFirst({ slug, deletedAt: null })
+                 avec include._count → si absent : notFound() → affichage.
 ecosystem:       Dev = [
                    "@/app/back-studio/scrum/[slug]/page.tsx",
-                   "@/app/back-studio/scrum/[slug]/edit/page.tsx",
+                   "@/components/project/ProjectModulesGrid.tsx",
                  ]
-relatedFiles:    ["@/components/project/DeleteProjectButton.tsx",
+relatedFiles:    ["@/components/project/ProjectModulesGrid.tsx",
                   "@/components/project/ProjectStatusBadge.tsx",
-                  "@/app/back-studio/scrum/page.tsx"]
+                  "@/components/project/DeleteProjectButton.tsx"]
 imports:         ["next", "next/link", "next/navigation", "lucide-react",
                   "@/lib/prisma",
                   "@/components/ui/button",
                   "@/components/project/ProjectStatusBadge",
-                  "@/components/project/DeleteProjectButton"]
+                  "@/components/project/DeleteProjectButton",
+                  "@/components/project/ProjectModulesGrid"]
 exports:         ["default ProjectDetailPage"]
 
 userStories:     ["*en tant que développeur je veux consulter le détail d'un projet"]
@@ -40,6 +40,7 @@ import { prisma } from "@/lib/prisma";
 import { buttonVariants } from "@/components/ui/button";
 import { ProjectStatusBadge } from "@/components/project/ProjectStatusBadge";
 import { DeleteProjectButton } from "@/components/project/DeleteProjectButton";
+import { ProjectModulesGrid } from "@/components/project/ProjectModulesGrid";
 
 type Params = Promise<{ slug: string }>;
 
@@ -49,11 +50,11 @@ export async function generateMetadata({
   params: Params;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const project = await prisma.project.findUnique({
-    where: { slug },
-    select: { name: true, tagline: true, deletedAt: true },
+  const project = await prisma.project.findFirst({
+    where: { slug, deletedAt: null },
+    select: { name: true, tagline: true },
   });
-  if (!project || project.deletedAt) return { title: "Projet introuvable" };
+  if (!project) return { title: "Projet introuvable" };
   return {
     title: `${project.name} — Scrum`,
     description: project.tagline ?? undefined,
@@ -67,8 +68,8 @@ export default async function ProjectDetailPage({
 }) {
   const { slug } = await params;
 
-  const project = await prisma.project.findUnique({
-    where: { slug },
+  const project = await prisma.project.findFirst({
+    where: { slug, deletedAt: null },
     include: {
       _count: {
         select: {
@@ -81,7 +82,9 @@ export default async function ProjectDetailPage({
     },
   });
 
-  if (!project || project.deletedAt) notFound();
+  if (!project) notFound();
+
+  const base = `/back-studio/scrum/${project.slug}`;
 
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6 md:py-12">
@@ -113,7 +116,7 @@ export default async function ProjectDetailPage({
 
         <div className="flex items-center gap-2">
           <Link
-            href={`/back-studio/scrum/${project.slug}/edit`}
+            href={`${base}/edit`}
             className={buttonVariants({ variant: "outline", size: "sm" })}
           >
             <Pencil className="h-4 w-4" aria-hidden />
@@ -132,25 +135,15 @@ export default async function ProjectDetailPage({
         </p>
       </section>
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Features" value={project._count.features} />
-        <Stat label="Personas" value={project._count.personas} />
-        <Stat label="User Stories" value={project._count.userStories} />
-        <Stat label="Sprints" value={project._count.sprints} />
-      </section>
+      <ProjectModulesGrid
+        projectSlug={project.slug}
+        counts={{
+          features: project._count.features,
+          personas: project._count.personas,
+          userStories: project._count.userStories,
+          sprints: project._count.sprints,
+        }}
+      />
     </main>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-0.5 font-mono text-2xl font-bold tabular-nums text-foreground">
-        {value}
-      </p>
-    </div>
   );
 }

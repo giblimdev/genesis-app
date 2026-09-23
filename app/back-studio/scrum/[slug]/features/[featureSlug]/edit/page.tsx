@@ -4,10 +4,11 @@ projectId:       <à fournir>
 type:            page
 generic:         false
 
-role:            Page d'édition d'une feature. Charge le projet et la feature, puis
-                 rend <FeatureForm mode="edit" />.
-flow:            Server Component async → params → findUnique projet + feature →
-                 notFound si absent ou feature hors projet → <FeatureForm mode="edit" />.
+role:            Page d'édition d'une feature. Charge le projet et la feature via
+                 findFirst, puis rend <FeatureForm mode="edit" />.
+flow:            Server Component async → params → findFirst projet + findFirst
+                 feature (via projectId + slug) → notFound si absent →
+                 <FeatureForm mode="edit" />.
 ecosystem:       Dev = [
                    "@/app/back-studio/scrum/[slug]/features/[featureSlug]/edit/page.tsx",
                    "@/components/feature/FeatureForm.tsx",
@@ -48,14 +49,14 @@ export default async function EditFeaturePage({
 }) {
   const { slug, featureSlug } = await params;
 
-  const project = await prisma.project.findUnique({
-    where: { slug },
-    select: { id: true, name: true, slug: true, deletedAt: true },
+  const project = await prisma.project.findFirst({
+    where: { slug, deletedAt: null },
+    select: { id: true, name: true, slug: true },
   });
-  if (!project || project.deletedAt) notFound();
+  if (!project) notFound();
 
-  const feature = await prisma.feature.findUnique({
-    where: { slug: featureSlug },
+  const feature = await prisma.feature.findFirst({
+    where: { projectId: project.id, slug: featureSlug },
     select: {
       id: true,
       projectId: true,
@@ -67,7 +68,7 @@ export default async function EditFeaturePage({
       accent: true,
     },
   });
-  if (!feature || feature.projectId !== project.id) notFound();
+  if (!feature) notFound();
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 md:py-12">

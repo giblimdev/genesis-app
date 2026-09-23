@@ -53,18 +53,18 @@ State =✘✔
 
 
 ## 5. Srum
-✔✘ crud Project
-✔✘ crud Feature
-✔✘ crud Persona
+✔ crud Project
+✔ crud Feature
+✔ crud Persona
 ✔✘ crud UserStory
 ✔✘ crud Sprint
 ✔✘ crud Task
 
 ## mise a jour save app
-- utiliise /public/gggg eclud.json
+- utiliise /public/gggg exlud.json
 
 
-✔✘- tester l'outil de copie "schema.prisma" et "package.json" permet de cliquer un seul ou les deux
+✔- tester l'outil de copie "schema.prisma" et "package.json" permet de cliquer un seul ou les deux
 
 
 

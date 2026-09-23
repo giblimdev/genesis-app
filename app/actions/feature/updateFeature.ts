@@ -6,15 +6,14 @@ generic:         false
 
 role:            Server Action de mise à jour d'une feature. Recalcule le slug si le
                  nom change et que le slug est laissé vide. Vérifie l'accès au projet
-                 parent.
+                 parent et l'unicité DU SLUG AU SEIN DU PROJET (findFirst).
 flow:            updateFeature(input) → getSession() → updateFeatureSchema.safeParse
                  → charge la feature → assertProjectAccess → si slug vide :
-                 slugify(name) + unicité globale → prisma.feature.update →
-                 revalidatePath.
+                 slugify(name) + findFreeSlug (findFirst {projectId, slug, id != exclu})
+                 → prisma.feature.update → revalidatePath.
 ecosystem:       Dev = [
                    "@/app/actions/feature/updateFeature.ts",
                    "@/lib/validations/feature.ts",
-                   "@/lib/actions/types.ts",
                  ]
 relatedFiles:    ["@/lib/prisma.ts", "@/lib/auth/session.ts",
                   "@/lib/auth/project-access.ts",
@@ -43,17 +42,29 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth/session";
 import { assertProjectAccess } from "@/lib/auth/project-access";
 import { updateFeatureSchema } from "@/lib/validations/feature";
-import { slugifyWithFallback } from "@/lib/utils/slugify";
+import { slugifyWithFallback } from "@/utils/slugify";
 import type { ActionResult } from "@/lib/actions/types";
 
-async function findFreeSlug(base: string, excludeId: string): Promise<string> {
+async function isSlugTaken(
+  projectId: string,
+  slug: string,
+  excludeId: string,
+): Promise<boolean> {
+  const existing = await prisma.feature.findFirst({
+    where: { projectId, slug, NOT: { id: excludeId } },
+    select: { id: true },
+  });
+  return existing !== null;
+}
+
+async function findFreeSlug(
+  projectId: string,
+  base: string,
+  excludeId: string,
+): Promise<string> {
   let candidate = base;
   for (let i = 2; i <= 999; i++) {
-    const existing = await prisma.feature.findUnique({
-      where: { slug: candidate },
-      select: { id: true },
-    });
-    if (!existing || existing.id === excludeId) return candidate;
+    if (!(await isSlugTaken(projectId, candidate, excludeId))) return candidate;
     candidate = `${base}-${i}`;
   }
   return `${base}-${Date.now()}`;
@@ -78,11 +89,11 @@ export async function updateFeature(
 
   const { id, projectId, name, description, module } = parsed.data;
 
-  const current = await prisma.feature.findUnique({
-    where: { id },
-    select: { id: true, slug: true, projectId: true },
+  const current = await prisma.feature.findFirst({
+    where: { id, projectId },
+    select: { id: true, slug: true },
   });
-  if (!current || current.projectId !== projectId) {
+  if (!current) {
     return { success: false, error: "Feature introuvable." };
   }
 
@@ -96,8 +107,8 @@ export async function updateFeature(
 
   const explicitSlug = parsed.data.slug?.trim();
   const nextSlug = explicitSlug
-    ? await findFreeSlug(explicitSlug, id)
-    : await findFreeSlug(slugifyWithFallback(name, "feature"), id);
+    ? await findFreeSlug(projectId, explicitSlug, id)
+    : await findFreeSlug(projectId, slugifyWithFallback(name, "feature"), id);
 
   try {
     const feature = await prisma.feature.update({
