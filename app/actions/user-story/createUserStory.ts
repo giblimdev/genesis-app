@@ -28,7 +28,7 @@ imports:         ["server-only", "next/cache",
                   "@/lib/validations/user-story",
                   "@/lib/user-story/json",
                   "@/lib/actions/types",
-                  "@/utils/slugify"]
+                  "@/utils/slugify", "@/utils/slug"]
 exports:         ["createUserStory"]
 
 userStories:     ["*en tant que développeur je veux créer une user story"]
@@ -52,28 +52,12 @@ import {
   type AcceptanceCriterion,
 } from "@/lib/user-story/json";
 import { slugifyWithFallback } from "@/utils/slugify";
+import { findFreeSlug } from "@/utils/slug";
 import type { ActionResult } from "@/lib/actions/types";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
-
-async function isSlugTaken(projectId: string, slug: string): Promise<boolean> {
-  const existing = await prisma.userStory.findFirst({
-    where: { projectId, slug, deletedAt: null },
-    select: { id: true },
-  });
-  return existing !== null;
-}
-
-async function findFreeSlug(projectId: string, base: string): Promise<string> {
-  let candidate = base;
-  for (let i = 2; i <= 999; i++) {
-    if (!(await isSlugTaken(projectId, candidate))) return candidate;
-    candidate = `${base}-${i}`;
-  }
-  return `${base}-${Date.now()}`;
-}
 
 /**
  * Découpe une saisie multiligne en liste nettoyée (trim + non vides).
@@ -172,7 +156,14 @@ export async function createUserStory(
   const baseSlug = parsed.data.slug?.trim()
     ? parsed.data.slug.trim()
     : slugifyWithFallback(title, "story");
-  const slug = await findFreeSlug(projectId, baseSlug);
+
+  const slug = await findFreeSlug(baseSlug, async (candidate) => {
+    const existing = await prisma.userStory.findFirst({
+      where: { projectId, slug: candidate, deletedAt: null },
+      select: { id: true },
+    });
+    return existing !== null;
+  });
 
   /* --- Display order --- */
   const maxOrder = await prisma.userStory.aggregate({

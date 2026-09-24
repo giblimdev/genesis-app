@@ -4,27 +4,33 @@ projectId:       <à fournir>
 type:            page
 generic:         false
 
-role:            Page de détail d'un projet. Affiche les informations complètes,
+role:            Page de détail d'un projet. Affiche les informations complètes, nnnnnnnnnnnnn
                  la grille des 4 modules (via <ProjectModulesGrid />) et les actions
-                 principales (Éditer, Supprimer).
+                 principales (Éditer, Supprimer, Export JSON / MD).
 flow:            Server Component async → params → findFirst({ slug, deletedAt: null })
                  avec include._count → si absent : notFound() → affichage.
-ecosystem:       Dev = [
+ecosystem:       Project = [
+                   "@/app/actions/project/exportProjectFull.ts",
                    "@/app/back-studio/scrum/[slug]/page.tsx",
-                   "@/components/project/ProjectModulesGrid.tsx",
+                   "@/components/project/ProjectExportDialog.tsx",
+                   "@/lib/project/serialize-for-disk.ts",
+                   "@/lib/project/serialize-to-md.ts",
                  ]
 relatedFiles:    ["@/components/project/ProjectModulesGrid.tsx",
                   "@/components/project/ProjectStatusBadge.tsx",
-                  "@/components/project/DeleteProjectButton.tsx"]
+                  "@/components/project/DeleteProjectButton.tsx",
+                  "@/components/project/ProjectExportDialog.tsx"]
 imports:         ["next", "next/link", "next/navigation", "lucide-react",
                   "@/lib/prisma",
                   "@/components/ui/button",
                   "@/components/project/ProjectStatusBadge",
                   "@/components/project/DeleteProjectButton",
-                  "@/components/project/ProjectModulesGrid"]
+                  "@/components/project/ProjectModulesGrid",
+                  "@/components/project/ProjectExportDialog"]
 exports:         ["default ProjectDetailPage"]
 
-userStories:     ["*en tant que développeur je veux consulter le détail d'un projet"]
+userStories:     ["*en tant que développeur je veux consulter le détail d'un projet",
+                  "*en tant que développeur je veux voir le JSON ou MD complet d'un projet"]
 status:          planned
 pathChecked:     ✘false
 metaDataChecked: ✘false
@@ -34,13 +40,14 @@ scriptChecked:   ✘false
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft, FileJson, Pencil } from "lucide-react";
 
 import { prisma } from "@/lib/prisma";
 import { buttonVariants } from "@/components/ui/button";
 import { ProjectStatusBadge } from "@/components/project/ProjectStatusBadge";
 import { DeleteProjectButton } from "@/components/project/DeleteProjectButton";
 import { ProjectModulesGrid } from "@/components/project/ProjectModulesGrid";
+import { ProjectExportDialog } from "@/components/project/ProjectExportDialog";
 
 type Params = Promise<{ slug: string }>;
 
@@ -114,7 +121,20 @@ export default async function ProjectDetailPage({
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <ProjectExportDialog
+            projectId={project.id}
+            projectName={project.name}
+            trigger={
+              <button
+                type="button"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                <FileJson className="h-4 w-4" aria-hidden />
+                Voir JSON / MD
+              </button>
+            }
+          />
           <Link
             href={`${base}/edit`}
             className={buttonVariants({ variant: "outline", size: "sm" })}

@@ -6,24 +6,25 @@ generic:         true
 
 role:            Affiche l'intégralité de la palette Tailwind par défaut (22 familles × 11
                  nuances), avec clic-pour-copier le code hexadécimal de chaque swatch. Met
-                 en évidence les 5 accents utilisés dans le projet (violet, cyan, amber,
-                 emerald, rose) via le token chart-1.
+                 en évidence les 10 accents utilisés dans le projet (violet, cyan, amber,
+                 emerald, rose, blue, indigo, fuchsia, teal, orange) via les tokens
+                 chart-1..10.
 flow:            Client Component → reçoit `filter` en prop ("all" | "accents" |
                  "neutrals") → filtre la constante COLORS → rend une ligne par famille,
                  11 swatches par ligne. Clic sur un swatch → navigator.clipboard.writeText
                  + toast sonner.
-ecosystem:       UI = [
+ecosystem:       DesignSystem = [
+                   "@/lib/design/accents.ts",
                    "@/components/common/TailwindPalette.tsx",
                  ]
-relatedFiles:    ["@/app/conception/graphic/page.tsx",
-                  "@/app/dev/palette/page.tsx"]
-imports:         ["react", "lucide-react", "sonner", "@/lib/utils"]
+relatedFiles:    ["@/lib/design/accents.ts"]
+imports:         ["react", "lucide-react", "sonner",
+                  "@/lib/design/accents", "@/lib/utils"]
 exports:         ["TailwindPalette", "TailwindPaletteProps", "TailwindPaletteFilter"]
-useBy:           ["@/app/conception/graphic/page.tsx",
-                  "@/app/dev/palette/page.tsx"]
+useBy:           []
 
 userStories:     ["*auto-tailwind-palette"]
-status:          wip
+status:          planned
 pathChecked:     ✘false
 metaDataChecked: ✘false
 scriptChecked:   ✘false
@@ -37,6 +38,7 @@ import { Check, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
+import { PROJECT_ACCENTS } from "@/lib/design/accents";
 
 /* ------------------------------------------------------------------ */
 /*  Constantes                                                         */
@@ -58,7 +60,9 @@ const SHADES = [
 
 type Shade = (typeof SHADES)[number];
 
-const PROJECT_ACCENTS = ["violet", "cyan", "amber", "emerald", "rose"] as const;
+/** Alias local — source de vérité : @/lib/design/accents. */
+const ACCENTS = PROJECT_ACCENTS;
+
 const NEUTRALS = ["slate", "gray", "zinc", "neutral", "stone"] as const;
 
 /* ------------------------------------------------------------------ */
@@ -382,7 +386,7 @@ export type TailwindPaletteProps = {
 /* ------------------------------------------------------------------ */
 
 function isAccent(name: string): boolean {
-  return (PROJECT_ACCENTS as readonly string[]).includes(name);
+  return (ACCENTS as readonly string[]).includes(name);
 }
 
 function isNeutral(name: string): boolean {

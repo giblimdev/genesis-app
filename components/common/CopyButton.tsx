@@ -6,15 +6,28 @@ generic:         true
 
 role:            Bouton client qui copie une chaîne dans le presse-papiers et affiche une
                  confirmation temporaire. Composant transversal, utilisable partout.
+                 Expose un callback optionnel `onCopied` invoqué après une copie réussie,
+                 ce qui permet au parent de réagir (vider un formulaire, fermer un
+                 dialogue, etc.).
 flow:            Reçoit la chaîne à copier en props → clic → navigator.clipboard (avec
-                 fallback execCommand) → toast Sonner + état "copied" pendant 1,5 s. 
+                 fallback execCommand) → toast Sonner + état "copied" pendant 1,5 s
+                 → invoque onCopied?.() si fourni.
 ecosystem:       UI = [
                    "@/components/common/CopyButton.tsx",
+                   "@/components/common/CopyJsonButton.tsx",
+                   "@/components/common/ExportJsonDialog.tsx",
+                   "@/components/common/ImportJsonDialog.tsx",
+                   "@/components/common/JsonEditor.tsx",
                  ]
-relatedFiles:    ["@/app/back-studio/ExportToIA/ExportView.tsx"]
-imports:         ["react", "lucide-react", "sonner"]
+relatedFiles:    ["@/app/back-studio/ExportToIA/ExportView.tsx",
+                  "@/app/back-studio/creatFiles/CreatFilesView.tsx",
+                  "@/components/common/code-block.tsx"]
+imports:         ["react", "lucide-react", "sonner",
+                  "props reçues : { value, label?, toastLabel?, className?, disabled?, onCopied? }"]
 exports:         ["CopyButton", "CopyButtonProps"]
-useBy:           ["@/app/back-studio/ExportToIA/ExportView.tsx"]
+useBy:           ["@/app/back-studio/ExportToIA/ExportView.tsx",
+                  "@/app/back-studio/creatFiles/CreatFilesView.tsx",
+                  "@/components/common/code-block.tsx"]
 
 userStories:     ["*en tant que développeur je veux copier une valeur en un clic"]
 status:          planned
@@ -30,13 +43,23 @@ import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { toast } from "sonner";
 
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
+
 export interface CopyButtonProps {
   readonly value: string;
   readonly label?: string;
   readonly toastLabel?: string;
   readonly className?: string;
   readonly disabled?: boolean;
+  /** Callback optionnel invoqué après une copie réussie. */
+  readonly onCopied?: () => void;
 }
+
+/* ------------------------------------------------------------------ */
+/*  Composant                                                          */
+/* ------------------------------------------------------------------ */
 
 export function CopyButton({
   value,
@@ -44,6 +67,7 @@ export function CopyButton({
   toastLabel = "Copié dans le presse-papiers",
   className = "",
   disabled = false,
+  onCopied,
 }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
 
@@ -64,6 +88,7 @@ export function CopyButton({
       setCopied(true);
       toast.success(toastLabel);
       window.setTimeout(() => setCopied(false), 1500);
+      onCopied?.();
     } catch {
       toast.error("Impossible de copier");
     }

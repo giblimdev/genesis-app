@@ -6,7 +6,7 @@ generic:         false
 
 role:            Server Action de mise à jour d'un projet existant. Recalcule le slug
                  si le nom change et que le slug est laissé vide. Refuse les projets
-                 soft-deleted. Unicité applicative via findFirst.
+                 soft-deleted. Unicité applicative via findFreeSlug.
 flow:            updateProject(input) → getSession() → updateProjectSchema.safeParse
                  → findFirst({ id, deletedAt: null }) → si slug vide :
                  slugify(name) + findFreeSlug (findFirst) → prisma.update →
@@ -22,7 +22,7 @@ relatedFiles:    ["@/lib/prisma.ts", "@/lib/auth/session.ts",
 imports:         ["server-only", "next/cache",
                   "@/lib/prisma", "@/lib/auth/session",
                   "@/lib/validations/project", "@/lib/actions/types",
-                  "@/utils/slugify"]
+                  "@/utils/slugify", "@/utils/slug"]
 exports:         ["updateProject"]
 
 userStories:     ["*en tant que développeur je veux modifier un projet"]
@@ -40,32 +40,8 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth/session";
 import { updateProjectSchema } from "@/lib/validations/project";
 import { slugifyWithFallback } from "@/utils/slugify";
+import { findFreeSlug } from "@/utils/slug";
 import type { ActionResult } from "@/lib/actions/types";
-
-/* ------------------------------------------------------------------ */
-/*  Unicité applicative du slug (findFirst)                            */
-/* ------------------------------------------------------------------ */
-
-async function isSlugTaken(slug: string, excludeId: string): Promise<boolean> {
-  const existing = await prisma.project.findFirst({
-    where: { slug, deletedAt: null, NOT: { id: excludeId } },
-    select: { id: true },
-  });
-  return existing !== null;
-}
-
-async function findFreeSlug(base: string, excludeId: string): Promise<string> {
-  let candidate = base;
-  for (let i = 2; i <= 999; i++) {
-    if (!(await isSlugTaken(candidate, excludeId))) return candidate;
-    candidate = `${base}-${i}`;
-  }
-  return `${base}-${Date.now()}`;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Action                                                             */
-/* ------------------------------------------------------------------ */
 
 export async function updateProject(
   input: unknown,
@@ -96,9 +72,18 @@ export async function updateProject(
   }
 
   const explicitSlug = parsed.data.slug?.trim();
+
+  const isTaken = async (candidate: string): Promise<boolean> => {
+    const existing = await prisma.project.findFirst({
+      where: { slug: candidate, deletedAt: null, NOT: { id } },
+      select: { id: true },
+    });
+    return existing !== null;
+  };
+
   const nextSlug = explicitSlug
-    ? await findFreeSlug(explicitSlug, id)
-    : await findFreeSlug(slugifyWithFallback(name, "project"), id);
+    ? await findFreeSlug(explicitSlug, isTaken)
+    : await findFreeSlug(slugifyWithFallback(name, "project"), isTaken);
 
   try {
     const project = await prisma.project.update({

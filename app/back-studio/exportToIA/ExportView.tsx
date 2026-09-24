@@ -338,14 +338,25 @@ export function ExportView({ files, defaultFilename }: ExportViewProps) {
 
       {/* Aperçu du document assemblé */}
       <section className="flex flex-col gap-2">
-        <header className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-foreground">
-            Aperçu du document assemblé
-          </h2>
-          <span className="font-mono text-[10px] text-muted-foreground">
-            {documentText.length.toLocaleString()} caractères
-          </span>
+        <header className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold text-foreground">
+              Aperçu du document assemblé
+            </h2>
+            <span className="font-mono text-[10px] text-muted-foreground">
+              {documentText.length.toLocaleString()} caractères
+            </span>
+          </div>
+
+          {/* ↓ NOUVEAU : copie directement depuis l'aperçu */}
+          <CopyButton
+            value={documentText}
+            label="Copier le document"
+            toastLabel={`Document copié (${selected.size} fichier(s))`}
+            disabled={documentText.length === 0}
+          />
         </header>
+
         <div className="max-h-[320px] overflow-auto rounded-xl border border-border bg-muted/30 p-4">
           <pre className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-foreground/90">
             {documentText || "(aucun fichier sélectionné)"}

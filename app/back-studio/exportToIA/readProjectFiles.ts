@@ -8,9 +8,11 @@ role:            Lecture serveur des fichiers sources à exporter : prisma/schem
                  package.json et CONTRIBUTING.md. Retourne un tableau de ProjectFile avec
                  contenu, indicateur missing et éventuel message d'erreur. Ne lève jamais :
                  un fichier absent est signalé par missing=true.
+
 flow:            readProjectFiles() → Promise.all(FILES.map(readFile)) → pour chaque fichier,
                  fs.readFile depuis process.cwd(). ENOENT → missing=true, autres erreurs →
                  missing=true + error. Utilisé par page.tsx (Server Component).
+
 ecosystem:       Dev = [
                    "@/app/back-studio/ExportToIA/page.tsx",
                    "@/app/back-studio/ExportToIA/readProjectFiles.ts",
@@ -69,7 +71,7 @@ const FILES: readonly FileSpec[] = [
 ];
 
 async function readOne(spec: FileSpec): Promise<ProjectFile> {
-  const abs = path.join(process.cwd(), spec.path);
+  const abs = path.join(/* turbopackIgnore: true */ process.cwd(), spec.path);
 
   try {
     const content = await fs.readFile(abs, "utf8");

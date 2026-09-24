@@ -4,29 +4,40 @@ projectId:       <à fournir>
 type:            helper
 generic:         true
 
-role:            Schémas Zod du CRUD Feature : création, mise à jour, suppression.
-                 Source unique de vérité pour la validation des entrées côté client
-                 et côté serveur. Expose aussi les constantes de module et d'accent.
+role:            Schémas Zod du CRUD Feature : création, mise à jour, suppression,
+                 import en lot. Source unique de vérité pour la validation des
+                 entrées côté client et côté serveur. Les accents sont importés du
+                 fichier central @/lib/design/accents.
 flow:            createFeatureSchema.safeParse(payload) → CreateFeatureInput.
                  updateFeatureSchema.safeParse(payload) → UpdateFeatureInput.
                  featureIdSchema.safeParse(payload) → { id }.
-ecosystem:       Dev = [
-                   "@/app/back-studio/scrum/[slug]/features/page.tsx",
-                   "@/app/actions/feature/createFeature.ts",
+                 bulkImportFeaturesSchema.safeParse(payload) → BulkImportFeatureInput[].
+ecosystem:       DesignSystem = [
+                   "@/lib/design/accents.ts",
+                   "@/components/common/AccentPicker.tsx",
+                   "@/components/common/EmptyState.tsx",
                    "@/lib/validations/feature.ts",
+                   "@/lib/validations/persona.ts",
+                   "@/lib/validations/sprint.ts",
+                   "@/lib/validations/user-story.ts",
                  ]
-relatedFiles:    ["@/app/actions/feature/createFeature.ts",
+relatedFiles:    ["@/lib/design/accents.ts",
+                  "@/app/actions/feature/createFeature.ts",
                   "@/app/actions/feature/updateFeature.ts",
                   "@/app/actions/feature/deleteFeature.ts",
+                  "@/app/actions/feature/bulkImportFeatures.ts",
                   "@/components/feature/FeatureForm.tsx"]
-imports:         ["zod"]
+imports:         ["zod", "@/lib/design/accents"]
 exports:         ["FEATURE_MODULES", "FeatureModule", "FEATURE_MODULE_LABELS",
+                  "getModuleLabel",
                   "FEATURE_ACCENTS", "FeatureAccent",
                   "createFeatureSchema", "CreateFeatureInput",
                   "updateFeatureSchema", "UpdateFeatureInput",
-                  "featureIdSchema", "FeatureIdInput"]
+                  "featureIdSchema", "FeatureIdInput",
+                  "bulkImportFeaturesSchema", "BulkImportFeatureInput"]
 
-userStories:     ["*en tant que développeur je veux valider les données d'une feature"]
+userStories:     ["*en tant que développeur je veux valider les données d'une feature",
+                  "*en tant que développeur je veux importer des features en lot"]
 status:          planned
 pathChecked:     ✘false
 metaDataChecked: ✘false
@@ -35,10 +46,13 @@ scriptChecked:   ✘false
 
 import { z } from "zod";
 
+import { PROJECT_ACCENTS } from "@/lib/design/accents";
+
 /* ------------------------------------------------------------------ */
-/*  Modules (miroir de la colonne String du schéma Prisma)             */
+/*  Modules — champ string requis (liste ouverte, suggestions UI)      */
 /* ------------------------------------------------------------------ */
 
+/** Suggestions affichées dans l’UI. Le champ accepte n’importe quelle string. */
 export const FEATURE_MODULES = [
   "vision",
   "conception",
@@ -50,9 +64,9 @@ export const FEATURE_MODULES = [
   "securite",
 ] as const;
 
-export type FeatureModule = (typeof FEATURE_MODULES)[number];
+export type FeatureModule = string;
 
-export const FEATURE_MODULE_LABELS: Record<FeatureModule, string> = {
+export const FEATURE_MODULE_LABELS: Record<string, string> = {
   vision: "Vision",
   conception: "Conception",
   backlog: "Backlog",
@@ -63,19 +77,16 @@ export const FEATURE_MODULE_LABELS: Record<FeatureModule, string> = {
   securite: "Sécurité",
 };
 
+export function getModuleLabel(module: string): string {
+  return FEATURE_MODULE_LABELS[module] ?? module;
+}
+
 /* ------------------------------------------------------------------ */
-/*  Accents (miroir de la colonne String du schéma Prisma)             */
+/*  Accents — alias de la liste centrale                               */
 /* ------------------------------------------------------------------ */
 
-export const FEATURE_ACCENTS = [
-  "violet",
-  "cyan",
-  "amber",
-  "emerald",
-  "rose",
-] as const;
-
-export type FeatureAccent = (typeof FEATURE_ACCENTS)[number];
+export const FEATURE_ACCENTS = PROJECT_ACCENTS;
+export type FeatureAccent = (typeof PROJECT_ACCENTS)[number];
 
 /* ------------------------------------------------------------------ */
 /*  Champs partagés                                                    */
@@ -104,7 +115,11 @@ const descriptionField = z
   .min(1, "Description requise.")
   .max(3000, "Description trop longue (3000 caractères maximum).");
 
-const moduleField = z.enum(FEATURE_MODULES);
+const moduleField = z
+  .string()
+  .trim()
+  .min(1, "Module requis.")
+  .max(60, "Module trop long (60 caractères maximum).");
 
 const iconField = z
   .string()
@@ -114,7 +129,7 @@ const iconField = z
   .or(z.literal(""));
 
 const accentField = z
-  .union([z.enum(FEATURE_ACCENTS), z.literal("")])
+  .union([z.enum(PROJECT_ACCENTS), z.literal("")])
   .optional();
 
 /* ------------------------------------------------------------------ */
@@ -152,3 +167,27 @@ export const featureIdSchema = z.object({
 });
 
 export type FeatureIdInput = z.infer<typeof featureIdSchema>;
+
+/* ------------------------------------------------------------------ */
+/*  Import en lot                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Item de bulk import — identique à createFeatureSchema SAUF que
+ * `projectId` est fourni par la page via `.bind()`, pas par le JSON.
+ */
+const bulkFeatureItemSchema = z.object({
+  name: nameField,
+  slug: slugField,
+  description: descriptionField,
+  module: moduleField,
+  icon: iconField,
+  accent: accentField,
+});
+
+export const bulkImportFeaturesSchema = z
+  .array(bulkFeatureItemSchema)
+  .min(1, "Le tableau doit contenir au moins une feature.")
+  .max(500, "500 features maximum par import.");
+
+export type BulkImportFeatureInput = z.infer<typeof bulkImportFeaturesSchema>;

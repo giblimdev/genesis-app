@@ -9,9 +9,9 @@ role:            Server Action de création d'un persona. Vérifie la session, l
                  projet (findFirst car plus de @unique), sérialise les keywords en
                  JSON stringifié, calcule le displayOrder.
 flow:            createPersona(input) → getSession() → createPersonaSchema.safeParse
-                 → assertProjectAccess → findFirst pour l'unicité du slug →
-                 parseKeywordsInput + stringifyKeywords → aggregate max displayOrder
-                 → prisma.persona.create → revalidatePath.
+                 → assertProjectAccess → findFreeSlug → parseKeywordsInput +
+                 stringifyKeywords → aggregate max displayOrder →
+                 prisma.persona.create → revalidatePath.
 ecosystem:       Dev = [
                    "@/app/actions/persona/createPersona.ts",
                    "@/lib/validations/persona.ts",
@@ -27,7 +27,7 @@ imports:         ["server-only", "next/cache",
                   "@/lib/auth/project-access",
                   "@/lib/validations/persona",
                   "@/lib/actions/types",
-                  "@/utils/slugify", "@/utils/keywords"]
+                  "@/utils/slugify", "@/utils/slug", "@/utils/keywords"]
 exports:         ["createPersona"]
 
 userStories:     ["*en tant que développeur je veux créer un persona"]
@@ -46,33 +46,9 @@ import { getSession } from "@/lib/auth/session";
 import { assertProjectAccess } from "@/lib/auth/project-access";
 import { createPersonaSchema } from "@/lib/validations/persona";
 import { slugifyWithFallback } from "@/utils/slugify";
+import { findFreeSlug } from "@/utils/slug";
 import { parseKeywordsInput, stringifyKeywords } from "@/utils/keywords";
 import type { ActionResult } from "@/lib/actions/types";
-
-/* ------------------------------------------------------------------ */
-/*  Unicité applicative du slug dans le projet                         */
-/* ------------------------------------------------------------------ */
-
-async function isSlugTaken(projectId: string, slug: string): Promise<boolean> {
-  const existing = await prisma.persona.findFirst({
-    where: { projectId, slug, deletedAt: null },
-    select: { id: true },
-  });
-  return existing !== null;
-}
-
-async function findFreeSlug(projectId: string, base: string): Promise<string> {
-  let candidate = base;
-  for (let i = 2; i <= 999; i++) {
-    if (!(await isSlugTaken(projectId, candidate))) return candidate;
-    candidate = `${base}-${i}`;
-  }
-  return `${base}-${Date.now()}`;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Action                                                             */
-/* ------------------------------------------------------------------ */
 
 export async function createPersona(
   input: unknown,
@@ -109,7 +85,13 @@ export async function createPersona(
     ? parsed.data.slug.trim()
     : slugifyWithFallback(name, "persona");
 
-  const slug = await findFreeSlug(projectId, baseSlug);
+  const slug = await findFreeSlug(baseSlug, async (candidate) => {
+    const existing = await prisma.persona.findFirst({
+      where: { projectId, slug: candidate, deletedAt: null },
+      select: { id: true },
+    });
+    return existing !== null;
+  });
 
   const maxOrder = await prisma.persona.aggregate({
     where: { projectId, deletedAt: null },

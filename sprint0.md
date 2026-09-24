@@ -32,19 +32,19 @@ State =✘✔
 
 ## 3. CONTRIBUTING Maker
 
-✘- lis CONTRIBUTING/nd
+✔- lis CONTRIBUTING/nd
 
-✘- edit chaque section. avec boutton up/qown pur changer l'ordre
+✔- edit chaque section. avec boutton up/qown pur changer l'ordre
 
-✘ -permet d' ajouter une section de modiffier 
+✔ -permet d' ajouter une section de modiffier 
 
-✘ -remplace CONTRIBUTING.md existant
+✔ -remplace CONTRIBUTING.md existant
 
 ## 3. Authentification (Better Auth)
 ✔ Configurer Better Auth (email/password, sessions)
 ✔ Créer les routes d’auth (/api/auth/[...all])
 ✔ Créer les pages login / register / 
-✔✘ Protéger les routes nécessaires via proxi.ts (midleware)
+✔ Protéger les routes nécessaires via proxi.ts (midleware)
 ✔ Vérifier la cohérence avec le modèle User du schéma Prisma
 
 ## 4. ecriture en em masse 
@@ -56,121 +56,164 @@ State =✘✔
 ✔ crud Project
 ✔ crud Feature
 ✔ crud Persona
-✔✘ crud UserStory
-✔✘ crud Sprint
-✔✘ crud Task
-
-## mise a jour save app
-- utiliise /public/gggg exlud.json
+✔ crud UserStory
+✔ crud Sprint
+CRUD sprint. dans un sprint je veux pouvoir ajouter retirer par Dnd une user story. un sprint archivé ou encours est verrouillé impossible de le modifier 
+✔ crud Task
 
 
-✔- tester l'outil de copie "schema.prisma" et "package.json" permet de cliquer un seul ou les deux
+## gestion par lot 
+✘✔ gestion par lot des userstory : doit offrir un champs editable d'un tableau de json. permettre copier un exemple type. en registrer en db
+✘✔ gestion par lot tache doit accepter un tableau de tache format json en accor avec la bd a parit d'un model copiable
+
+
+## gestion par lot 
+✘✔ generateur del'arboresence 
+
+## gestion par lot 
+✘✔bouton hard delet 
+
+## generateur de contexte.
+grere un json avec le project l'epic et l'user story pour tager les en-tête
+
+
+## Factoriser 
+
+
+
+CopyJsonButton
+
+
+
+DegradedModeBanner
+Déjà utilisé dans :
+
+❌ Nulle part dans les fichiers que tu as fournis.
+
+Pourrait être utilisé dans :
+
+app/back-studio/scrum/[slug]/page.tsx : quand loadProjectBySlug retourne { source: "disk", warning }. C'est exactement le cas d'usage prévu par le header.
+
+app/back-studio/scrum/[slug]/features/page.tsx : idem si tu adoptes le fallback disque sur cette page.
+
+app/back-studio/scrum/[slug]/backlog/page.tsx : idem.
+
+Toute page qui utilise loadProjectBySlug.
+
+Verdict : composant orphelin alors qu'il a été créé pour load-project.ts. À intégrer en priorité.
+
+
+EmptyState
+Déjà utilisé dans :
+
+app/back-studio/scrum/page.tsx
+
+app/back-studio/scrum/trash/page.tsx
+
+app/back-studio/scrum/[slug]/features/page.tsx
+
+app/back-studio/scrum/[slug]/personas/page.tsx
+
+app/back-studio/scrum/[slug]/personas/trash/page.tsx
+
+app/back-studio/scrum/[slug]/backlog/page.tsx
+
+app/back-studio/scrum/[slug]/backlog/trash/page.tsx
+
+app/back-studio/scrum/[slug]/sprints/page.tsx
+
+app/back-studio/scrum/[slug]/sprints/trash/page.tsx
+
+Pourrait être utilisé dans :
+
+app/back-studio/scrum/[slug]/page.tsx : si un projet n'a aucun module rempli, afficher un état vide.
+
+components/task/TaskList.tsx : remplacer le <p> d'état vide actuel par <EmptyState> pour uniformiser.
+
+app/back-studio/creatFiles/CreatFilesView.tsx : quand aucune entrée exploitable.
+
+Verdict : bien utilisé. Deux endroits à uniformiser (TaskList, CreatFilesView).
+
+
+8. ExportJsonDialog
+Déjà utilisé dans :
+
+app/back-studio/scrum/page.tsx
+
+Pourrait être utilisé dans :
+
+app/back-studio/scrum/[slug]/features/page.tsx : exporter les features d'un projet.
+
+app/back-studio/scrum/[slug]/personas/page.tsx : exporter les personas.
+
+app/back-studio/scrum/[slug]/backlog/page.tsx : exporter les user stories.
+
+app/back-studio/scrum/[slug]/sprints/page.tsx : exporter les sprints.
+
+app/back-studio/scrum/[slug]/page.tsx : exporter le projet complet (avec fullFetcher = serializeProjectForDisk).
+
+Verdict : sous-utilisé. Tu n'as qu'un seul point d'export alors que tu as 4 modules exportables.
+
+
+9. ImportJsonDialog
+Déjà utilisé dans :
+
+app/back-studio/scrum/page.tsx
+
+Pourrait être utilisé dans :
+
+app/back-studio/scrum/[slug]/features/page.tsx : importer des features en lot (nécessite une Server Action bulkImportFeatures).
+
+app/back-studio/scrum/[slug]/personas/page.tsx : idem pour les personas.
+
+app/back-studio/scrum/[slug]/backlog/page.tsx : idem pour les user stories.
+
+app/back-studio/scrum/[slug]/sprints/page.tsx : idem pour les sprints.
+
+Verdict : sous-utilisé. Nécessite de créer les Server Actions bulkImport* correspondantes.
+
+10. JsonEditor
+Déjà utilisé dans :
+
+❌ Nulle part dans les fichiers que tu as fournis. Le header le référence dans relatedFiles de ImportJsonDialog, mais ImportJsonDialog utilise une <Textarea> simple.
+
+Pourrait être utilisé dans :
+
+components/common/ImportJsonDialog.tsx : remplacer la <Textarea> par <JsonEditor> pour avoir la validation syntaxique live.
+
+app/back-studio/help-dev/prompt/PromptView.tsx : si tu veux ajouter une édition JSON de la config.
+
+Toute page d'édition de config JSON (ex. excludes.json).
+
+Verdict : composant orphelin. À intégrer dans ImportJsonDialog en priorité.
+
+
+2. TailwindPalette
+Déjà utilisé dans :
+
+app/conception/graphic/page.tsx (référencé dans le header)
+
+app/dev/palette/page.tsx (référencé dans le header)
+
+⚠️ Ces deux pages n'existent pas dans les fichiers que tu as fournis. Le composant est donc probablement orphelin.
+
+Pourrait être utilisé dans :
+
+app/back-studio/help-dev/thema/page.tsx : la page Token Thema affiche déjà les tokens du thème. Ajouter TailwindPalette en dessous pour la palette brute serait cohérent.
+
+app/back-studio/help-dev/page.tsx : section « Palette ».
+
+app/back-studio/help-dev/cmd/page.tsx : section « Couleurs ».
+
+Verdict : probablement orphelin. À intégrer dans help-dev/thema ou help-dev/cmd
+
+
+## mise ajour des en-têtes
 
 
 
 
-/*Inventaire des tokens à personnaliser
-Surfaces (5 paires)
-Token	Rôle	Exemple
---background / --foreground	Fond global + texte	oklch(1 0 0)
---card / --card-foreground	Cartes	idem background
---popover / --popover-foreground	Menus, dropdowns	idem background
-Actions (6 tokens)
-Token	Rôle
---primary	Couleur d’action principale (boutons, liens actifs)
---primary-foreground	Texte sur primary
---secondary / --secondary-foreground	Action secondaire
---accent / --accent-foreground	Surbrillance (hover de menu)
-États (4 tokens)
-Token	Rôle
---muted / --muted-foreground	Zones discrètes, texte secondaire
---destructive / --destructive-foreground	Erreur, suppression
-Bordures & focus (3 tokens)
-Token	Rôle
---border	Bordures standard
---input	Bordure des inputs
---ring	Focus visible
-Accents projet (5 tokens)
-Token	Rôle
---chart-1	Accent principal (violet)
---chart-2	Accent secondaire (cyan)
---chart-3	Attention (amber)
---chart-4	Succès (emerald)
---chart-5	Danger léger (rose)
-Polices (3 tokens)
-Token	Rôle
---font-body	Police du corps (par défaut : Inter)
---font-heading	Police des titres (par défaut : Fraunces)
---font-code	Police du code (par défaut : JetBrains Mono)
-Forme (1 token)
-Token	Rôle
---radius	Rayon global (dérive --radius-sm/md/lg/xl/2xl/3xl/4xl)
-Sidebar (8 tokens, optionnel)
-Token	Rôle
---sidebar / --sidebar-foreground	Fond + texte
---sidebar-primary / --sidebar-primary-foreground	Action principale
---sidebar-accent / --sidebar-accent-foreground	Hover
---sidebar-border / --sidebar-ring	Bordure + focus
-Comment personnaliser
-Changer la couleur principale en bleu
-css
-:root {
-  --primary: oklch(0.55 0.18 240);
-  --ring:    oklch(0.55 0.18 240 / 40%);
-}
-.dark {
-  --primary: oklch(0.72 0.16 240);
-  --ring:    oklch(0.72 0.16 240 / 50%);
-}
-Changer le radius global
-css
-:root {
-  --radius: 1rem;   /* au lieu de 0.625rem */
-}
-Tous les rounded-sm/md/lg/xl/2xl se recalculent automatiquement.
 
-Changer une police
-Dans :root :
 
-css
---font-body: var(--font-fraunces);   /* titres = corps */
-Ou via un thème [data-theme="editorial"].
 
-Couleurs — repères oklch
-oklch(L C H) :
 
-Paramètre	Plage	Sens
-L (luminosité)	0 → 1	0 = noir, 1 = blanc
-C (chroma)	0 → 0.4	0 = gris, 0.2 = très saturé
-H (hue)	0 → 360	Voir tableau ci-dessous
-Hue courants
-Couleur	Hue
-Rouge	25
-Rose	15
-Orange	55
-Amber	75
-Jaune	95
-Lime	120
-Vert	145
-Emerald	155
-Teal	180
-Cyan	200
-Sky	220
-Bleu	240
-Indigo	265
-Violet	295
-Fuchsia	330
-Exemples
-css
-/* Violet moyen, bien saturé */
---primary: oklch(0.55 0.22 295);
-
-/* Bleu profond, peu saturé */
---primary: oklch(0.40 0.10 240);
-
-/* Rose vif */
---primary: oklch(0.65 0.25 5);
-
-/* Gris neutre */
---primary: oklch(0.55 0 0);
-*/

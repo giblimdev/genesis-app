@@ -26,7 +26,7 @@ imports:         ["server-only", "next/cache",
                   "@/lib/auth/project-access",
                   "@/lib/validations/persona",
                   "@/lib/actions/types",
-                  "@/utils/slugify", "@/utils/keywords"]
+                  "@/utils/slugify", "@/utils/slug", "@/utils/keywords"]
 exports:         ["updatePersona"]
 
 userStories:     ["*en tant que développeur je veux modifier un persona"]
@@ -45,46 +45,9 @@ import { getSession } from "@/lib/auth/session";
 import { assertProjectAccess } from "@/lib/auth/project-access";
 import { updatePersonaSchema } from "@/lib/validations/persona";
 import { slugifyWithFallback } from "@/utils/slugify";
+import { findFreeSlug } from "@/utils/slug";
 import { parseKeywordsInput, stringifyKeywords } from "@/utils/keywords";
 import type { ActionResult } from "@/lib/actions/types";
-
-/* ------------------------------------------------------------------ */
-/*  Unicité applicative du slug dans le projet                         */
-/* ------------------------------------------------------------------ */
-
-async function isSlugTaken(
-  projectId: string,
-  slug: string,
-  excludeId: string,
-): Promise<boolean> {
-  const existing = await prisma.persona.findFirst({
-    where: {
-      projectId,
-      slug,
-      deletedAt: null,
-      NOT: { id: excludeId },
-    },
-    select: { id: true },
-  });
-  return existing !== null;
-}
-
-async function findFreeSlug(
-  projectId: string,
-  base: string,
-  excludeId: string,
-): Promise<string> {
-  let candidate = base;
-  for (let i = 2; i <= 999; i++) {
-    if (!(await isSlugTaken(projectId, candidate, excludeId))) return candidate;
-    candidate = `${base}-${i}`;
-  }
-  return `${base}-${Date.now()}`;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Action                                                             */
-/* ------------------------------------------------------------------ */
 
 export async function updatePersona(
   input: unknown,
@@ -126,13 +89,23 @@ export async function updatePersona(
   const keywords = stringifyKeywords(keywordsList);
 
   const explicitSlug = parsed.data.slug?.trim();
-  const nextSlug = explicitSlug
-    ? await findFreeSlug(projectId, explicitSlug, id)
-    : await findFreeSlug(
+
+  const isTaken = async (candidate: string): Promise<boolean> => {
+    const existing = await prisma.persona.findFirst({
+      where: {
         projectId,
-        slugifyWithFallback(name, "persona"),
-        id,
-      );
+        slug: candidate,
+        deletedAt: null,
+        NOT: { id },
+      },
+      select: { id: true },
+    });
+    return existing !== null;
+  };
+
+  const nextSlug = explicitSlug
+    ? await findFreeSlug(explicitSlug, isTaken)
+    : await findFreeSlug(slugifyWithFallback(name, "persona"), isTaken);
 
   try {
     const persona = await prisma.persona.update({

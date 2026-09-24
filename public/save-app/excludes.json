@@ -5,8 +5,8 @@
     "lib",
     "utils",
     "store",
-    "prisma",
     "hooks"
+   
   ],
   "excludes": [
     "node_modules",

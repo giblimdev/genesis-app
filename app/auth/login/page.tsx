@@ -55,7 +55,7 @@ export const metadata: Metadata = {
 
 export default async function LoginPage() {
   const session = await getSession();
-  if (session) redirect("/conception");
+  if (session) redirect("/auth/welcome");
 
-  return <LoginForm callbackUrl="/conception" />;
+  return <LoginForm callbackUrl="/auth/welcome" />;
 }

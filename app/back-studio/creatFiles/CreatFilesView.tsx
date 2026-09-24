@@ -6,17 +6,20 @@ generic:         false
 
 role:            Vue client de CreatFiles. Gère une liste ordonnée d'entrées { path,
                  content }, permet d'ajouter, supprimer, réordonner (↑ ↓), éditer
-                 chaque champ, tout vider, copier le JSON, et enregistrer sur disque.
+                 chaque champ, tout vider, et enregistrer sur disque.
                  Le path est OPTIONNEL : s'il est vide, il est déduit de l'en-tête
                  Helpdev du contenu (champ `path :`) et affiché en aperçu.
                  L'enregistrement est protégé par un contrôle de conflit serveur
                  (jamais d'écrasement par défaut).
+                 Après une sauvegarde réussie, la liste est automatiquement
+                 réinitialisée à une entrée vide.
 
-flow:            useState(entries) → toolbar (ajouter / tout vider / copier / enregistrer)
+flow:            useState(entries) → toolbar (ajouter / tout vider)
                  → liste de <EntryRow> contrôlées → <pre> de prévisualisation JSON
-                 (avec chemins résolus). handleSave(onConflict?) appelle
+                 (avec chemins résolus) → barre d'action finale (récapitulatif +
+                 bouton Enregistrer sur disque). handleSave(onConflict?) appelle
                  POST /api/back-studio/creat-files/save.
-                 Si 409 → ouvre <ConflictDialog>. Si 200 → toast avec résumé.
+                 Si 409 → ouvre <ConflictDialog>. Si 200 → toast avec résumé + clearAll().
 
 ecosystem:       Dev = [
                    "@/app/back-studio/creatFiles/page.tsx",
@@ -25,17 +28,16 @@ ecosystem:       Dev = [
                  ]
 relatedFiles:    ["@/app/back-studio/creatFiles/page.tsx",
                   "@/app/back-studio/creatFiles/ConflictDialog.tsx",
-                  "@/app/api/back-studio/creat-files/save/route.ts",
-                  "@/components/common/CopyButton.tsx"]
+                  "@/app/api/back-studio/creat-files/save/route.ts"]
 imports:         ["react", "lucide-react", "sonner",
-                  "@/components/common/CopyButton",
                   "@/app/back-studio/creatFiles/ConflictDialog",
                   "props reçues : aucune (composant autonome)"]
 exports:         ["CreatFilesView"]
 useBy:           ["@/app/back-studio/creatFiles/page.tsx"]
 
 userStories:     ["*en tant que développeur je veux composer et créer un tableau de fichiers",
-                  "*en tant que développeur je veux que le path soit déduit du contenu"]
+                  "*en tant que développeur je veux que le path soit déduit du contenu",
+                  "*en tant que développeur je veux que les champs se vident après enregistrement"]
 status:          planned
 pathChecked:     ✘false
 metaDataChecked: ✘false
@@ -57,7 +59,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { CopyButton } from "@/components/common/CopyButton";
 import { ConflictDialog } from "./ConflictDialog";
 
 /* ------------------------------------------------------------------ */
@@ -253,17 +254,34 @@ export function CreatFilesView() {
       }
 
       const summary = data.summary;
+      const allOk = !summary || summary.failed === 0;
+
+      /* Toast récapitulatif */
       if (summary) {
         if (summary.failed > 0) {
-          toast.warning(summarize(summary));
+          toast.warning(summarize(summary), {
+            description:
+              "Certaines entrées ont échoué — la liste est conservée pour réessai.",
+          });
         } else {
-          toast.success(summarize(summary));
+          toast.success(summarize(summary), {
+            description: "Liste réinitialisée.",
+          });
         }
       } else {
-        toast.success("Fichiers enregistrés.");
+        toast.success("Fichiers enregistrés.", {
+          description: "Liste réinitialisée.",
+        });
       }
 
       setConflicts(null);
+
+      /* Reset garanti après une sauvegarde 100% réussie.
+         Si au moins une écriture a échoué, on conserve les entrées pour
+         permettre un nouvel essai (l'utilisateur garde le contexte). */
+      if (allOk) {
+        clearAll();
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
     } finally {
@@ -277,7 +295,10 @@ export function CreatFilesView() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Toolbar */}
+      {/* ============================================================ */}
+      {/*  Toolbar supérieure — composition                           */}
+      {/* ============================================================ */}
+
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3">
         <button
           type="button"
@@ -316,31 +337,13 @@ export function CreatFilesView() {
               {deducedCount} path déduit(s) du header
             </span>
           )}
-
-          <CopyButton
-            value={json}
-            label="Copier le JSON"
-            toastLabel={`${filled.length} fichier(s) copié(s)`}
-            disabled={isEmpty}
-          />
-
-          <button
-            type="button"
-            onClick={() => handleSave()}
-            disabled={saving || isEmpty}
-            className="inline-flex items-center gap-1.5 rounded-md bg-chart-4/10 px-3 py-1.5 text-xs font-medium text-chart-4 transition-colors hover:bg-chart-4/20 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {saving ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            ) : (
-              <HardDriveDownload className="h-3.5 w-3.5" aria-hidden />
-            )}
-            Enregistrer sur disque
-          </button>
         </span>
       </div>
 
-      {/* Liste des entrées */}
+      {/* ============================================================ */}
+      {/*  Liste des entrées                                          */}
+      {/* ============================================================ */}
+
       <div className="flex flex-col gap-3">
         {entries.map((entry, index) => (
           <EntryRow
@@ -356,7 +359,10 @@ export function CreatFilesView() {
         ))}
       </div>
 
-      {/* Aperçu du JSON */}
+      {/* ============================================================ */}
+      {/*  Aperçu du JSON                                             */}
+      {/* ============================================================ */}
+
       <section className="flex flex-col gap-2">
         <header className="flex items-center justify-between">
           <div className="inline-flex items-center gap-2 text-xs font-bold text-foreground">
@@ -374,7 +380,52 @@ export function CreatFilesView() {
         </div>
       </section>
 
-      {/* Dialogue de conflit */}
+      {/* ============================================================ */}
+      {/*  Barre d'action inférieure — Enregistrer sur disque         */}
+      {/* ============================================================ */}
+
+      <div className="sticky bottom-3 z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-chart-4/30 bg-card/95 p-3 shadow-lg shadow-chart-4/5 backdrop-blur">
+        {/* Récapitulatif */}
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2.5 py-0.5 font-mono text-[10px] font-medium text-foreground">
+            <span className="font-bold tabular-nums">{filled.length}</span>
+            fichier(s) prêt(s)
+          </span>
+
+          {deducedCount > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-chart-1/30 bg-chart-1/10 px-2 py-0.5 text-[10px] font-medium text-chart-1">
+              <Sparkles className="h-3 w-3" aria-hidden />
+              {deducedCount} déduit(s)
+            </span>
+          )}
+
+          {!isEmpty && (
+            <span className="hidden sm:inline">
+              Les champs seront réinitialisés après enregistrement.
+            </span>
+          )}
+        </div>
+
+        {/* Bouton principal */}
+        <button
+          type="button"
+          onClick={() => handleSave()}
+          disabled={saving || isEmpty}
+          className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-chart-4 to-chart-2 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-chart-4/30 transition-all hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chart-4/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+        >
+          {saving ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          ) : (
+            <HardDriveDownload className="h-4 w-4" aria-hidden />
+          )}
+          {saving ? "Enregistrement…" : "Enregistrer sur disque"}
+        </button>
+      </div>
+
+      {/* ============================================================ */}
+      {/*  Dialogue de conflit                                        */}
+      {/* ============================================================ */}
+
       {conflicts !== null && (
         <ConflictDialog
           conflicts={conflicts}

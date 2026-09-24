@@ -7,9 +7,11 @@ generic:         true
 role:            Parcours récursif du disque. Prend une ExcludesConfig (roots + excludes +
                  extensions) et retourne tous les ScannedFile correspondants, triés, avec
                  un compteur de fichiers ignorés. Aucune lecture de contenu ici.
+
 flow:            walkApp(config) → pour chaque root, récursion réaddir → ignore les dossiers
                  exclus → filtre les extensions autorisées et les motifs exclus → accumule
                  les ScannedFile. S'arrête proprement si maxFiles est atteint.
+
 ecosystem:       Dev = [
                    "@/app/back-studio/saveApp/page.tsx",
                    "@/app/back-studio/saveApp/excludes.ts",
@@ -100,7 +102,9 @@ export async function walkApp(config: ExcludesConfig): Promise<WalkResult> {
       if (truncated) return;
 
       const abs = path.join(absoluteDir, entry.name);
-      const rel = normalizeRel(path.relative(process.cwd(), abs));
+      const rel = normalizeRel(
+        path.relative(/* turbopackIgnore: true */ process.cwd(), abs),
+      );
 
       if (entry.isDirectory()) {
         if (isDirExcluded(rel, config.excludes)) {
@@ -143,7 +147,7 @@ export async function walkApp(config: ExcludesConfig): Promise<WalkResult> {
 
   for (const root of config.roots) {
     if (truncated) break;
-    const absRoot = path.join(process.cwd(), root);
+    const absRoot = path.join(/* turbopackIgnore: true */ process.cwd(), root);
     try {
       const stat = await fs.stat(absRoot);
       if (stat.isDirectory()) {

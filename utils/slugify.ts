@@ -1,5 +1,5 @@
 /*
-path :           lib/utils/slugify.ts
+path :           utils/slugify.ts
 projectId:       <à fournir>
 type:            helper
 generic:         true

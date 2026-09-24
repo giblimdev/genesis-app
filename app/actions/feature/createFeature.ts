@@ -24,7 +24,7 @@ imports:         ["server-only", "next/cache",
                   "@/lib/auth/project-access",
                   "@/lib/validations/feature",
                   "@/lib/actions/types",
-                  "@/lib/utils/slugify"]
+                  "@/utils/slugify", "@/utils/slug"]
 exports:         ["createFeature"]
 
 userStories:     ["*en tant que développeur je veux créer une feature"]
@@ -43,32 +43,8 @@ import { getSession } from "@/lib/auth/session";
 import { assertProjectAccess } from "@/lib/auth/project-access";
 import { createFeatureSchema } from "@/lib/validations/feature";
 import { slugifyWithFallback } from "@/utils/slugify";
+import { findFreeSlug } from "@/utils/slug";
 import type { ActionResult } from "@/lib/actions/types";
-
-/* ------------------------------------------------------------------ */
-/*  Unicité applicative du slug DANS le projet                         */
-/* ------------------------------------------------------------------ */
-
-async function isSlugTaken(projectId: string, slug: string): Promise<boolean> {
-  const existing = await prisma.feature.findFirst({
-    where: { projectId, slug },
-    select: { id: true },
-  });
-  return existing !== null;
-}
-
-async function findFreeSlug(projectId: string, base: string): Promise<string> {
-  let candidate = base;
-  for (let i = 2; i <= 999; i++) {
-    if (!(await isSlugTaken(projectId, candidate))) return candidate;
-    candidate = `${base}-${i}`;
-  }
-  return `${base}-${Date.now()}`;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Action                                                             */
-/* ------------------------------------------------------------------ */
 
 export async function createFeature(
   input: unknown,
@@ -100,7 +76,13 @@ export async function createFeature(
     ? parsed.data.slug.trim()
     : slugifyWithFallback(name, "feature");
 
-  const slug = await findFreeSlug(projectId, baseSlug);
+  const slug = await findFreeSlug(baseSlug, async (candidate) => {
+    const existing = await prisma.feature.findFirst({
+      where: { projectId, slug: candidate },
+      select: { id: true },
+    });
+    return existing !== null;
+  });
 
   const maxOrder = await prisma.feature.aggregate({
     where: { projectId },

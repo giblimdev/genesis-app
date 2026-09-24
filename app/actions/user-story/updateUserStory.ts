@@ -27,7 +27,7 @@ imports:         ["server-only", "next/cache",
                   "@/lib/validations/user-story",
                   "@/lib/user-story/json",
                   "@/lib/actions/types",
-                  "@/utils/slugify"]
+                  "@/utils/slugify", "@/utils/slug"]
 exports:         ["updateUserStory"]
 
 userStories:     ["*en tant que développeur je veux modifier une user story"]
@@ -51,41 +51,12 @@ import {
   type AcceptanceCriterion,
 } from "@/lib/user-story/json";
 import { slugifyWithFallback } from "@/utils/slugify";
+import { findFreeSlug } from "@/utils/slug";
 import type { ActionResult } from "@/lib/actions/types";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
-
-async function isSlugTaken(
-  projectId: string,
-  slug: string,
-  excludeId: string,
-): Promise<boolean> {
-  const existing = await prisma.userStory.findFirst({
-    where: {
-      projectId,
-      slug,
-      deletedAt: null,
-      NOT: { id: excludeId },
-    },
-    select: { id: true },
-  });
-  return existing !== null;
-}
-
-async function findFreeSlug(
-  projectId: string,
-  base: string,
-  excludeId: string,
-): Promise<string> {
-  let candidate = base;
-  for (let i = 2; i <= 999; i++) {
-    if (!(await isSlugTaken(projectId, candidate, excludeId))) return candidate;
-    candidate = `${base}-${i}`;
-  }
-  return `${base}-${Date.now()}`;
-}
 
 function parseLines(input: string): string[] {
   return input
@@ -190,9 +161,23 @@ export async function updateUserStory(
 
   /* --- Slug --- */
   const explicitSlug = parsed.data.slug?.trim();
+
+  const isTaken = async (candidate: string): Promise<boolean> => {
+    const existing = await prisma.userStory.findFirst({
+      where: {
+        projectId,
+        slug: candidate,
+        deletedAt: null,
+        NOT: { id },
+      },
+      select: { id: true },
+    });
+    return existing !== null;
+  };
+
   const nextSlug = explicitSlug
-    ? await findFreeSlug(projectId, explicitSlug, id)
-    : await findFreeSlug(projectId, slugifyWithFallback(title, "story"), id);
+    ? await findFreeSlug(explicitSlug, isTaken)
+    : await findFreeSlug(slugifyWithFallback(title, "story"), isTaken);
 
   try {
     const story = await prisma.userStory.update({

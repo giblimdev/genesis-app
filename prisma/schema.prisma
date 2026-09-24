@@ -461,6 +461,7 @@ model ContentBlock {
   articleId    String
   parentId     String?
   contentType  ContentType @default(MARKDOWN)
+  blockType    String // paragraph, heading, code, quote, image, list, section
   body         String
   displayOrder Int         @default(0)
   createdAt    DateTime    @default(now())

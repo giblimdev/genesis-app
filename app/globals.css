@@ -1,3 +1,51 @@
+/*
+path :           app/globals.css
+projectId:       <à fournir>
+type:            config
+generic:         false
+
+role:            Feuille de styles globale de Genesis. Déclare les design tokens
+                 (couleurs, polices, rayons) via @theme inline pour exposer des
+                 classes Tailwind v4 (bg-X, text-X, font-X, rounded-X…), puis
+                 définit les valeurs concrètes dans :root (thème clair) et .dark
+                 (thème sombre). Les 10 accents projet (chart-1..10) sont utilisés
+                 par AccentPicker, FeatureCard, PersonaCard, SprintCard,
+                 EmptyState, UserMenu, LoginForm, RegisterForm, PasswordStrength.
+
+flow:            1. @theme inline → expose chaque token à Tailwind (génère les classes)
+                 2. :root → valeurs par défaut du thème clair
+                 3. .dark → surcharges du thème sombre
+                 4. @layer base → application des polices et bordures par défaut
+                 5. Variantes optionnelles commentées (Ocean, Editorial, Mono)
+
+ecosystem:       DesignSystem = [
+                   "@/app/globals.css",
+                   "@/components/common/AccentPicker.tsx",
+                   "@/components/common/EmptyState.tsx",
+                   "@/lib/validations/feature.ts",
+                   "@/lib/validations/persona.ts",
+                   "@/lib/validations/sprint.ts",
+                   "@/lib/validations/user-story.ts",
+                 ]
+relatedFiles:    ["@/app/layout.tsx",
+                  "@/components/common/AccentPicker.tsx",
+                  "@/components/common/EmptyState.tsx",
+                  "@/components/feature/FeatureCard.tsx",
+                  "@/components/persona/PersonaCard.tsx",
+                  "@/components/sprint/SprintCard.tsx",
+                  "@/components/common/TailwindPalette.tsx",
+                  "@/app/back-studio/help-dev/thema/ThemaView.tsx"]
+imports:         ["tailwindcss", "tw-animate-css", "shadcn/tailwind.css"]
+exports:         []
+
+userStories:     ["*en tant que développeur je veux un design system thémable",
+                  "*en tant que développeur je veux 10 accents projet disponibles"]
+status:          planned
+pathChecked:     ✘false
+metaDataChecked: ✘false
+scriptChecked:   ✘false
+*/
+
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -55,14 +103,21 @@
   --color-ring:                  var(--ring);
 
   /* ---------------------------------------------------------------- */
-  /*  Couleurs — accents projet (charts)                               */
-  /*  Utilisés par : UserMenu, LoginForm, RegisterForm, PasswordStrength*/
+  /*  Couleurs — accents projet (10 familles)                          */
+  /*  Utilisés par : AccentPicker, FeatureCard, PersonaCard,           */
+  /*  SprintCard, EmptyState, UserMenu, LoginForm, RegisterForm,       */
+  /*  PasswordStrength, ThemaView.                                     */
   /* ---------------------------------------------------------------- */
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
+  --color-chart-1:  var(--chart-1);   /* violet  */
+  --color-chart-2:  var(--chart-2);   /* cyan    */
+  --color-chart-3:  var(--chart-3);   /* amber   */
+  --color-chart-4:  var(--chart-4);   /* emerald */
+  --color-chart-5:  var(--chart-5);   /* rose    */
+  --color-chart-6:  var(--chart-6);   /* blue    */
+  --color-chart-7:  var(--chart-7);   /* indigo  */
+  --color-chart-8:  var(--chart-8);   /* fuchsia */
+  --color-chart-9:  var(--chart-9);   /* teal    */
+  --color-chart-10: var(--chart-10);  /* orange  */
 
   /* ---------------------------------------------------------------- */
   /*  Couleurs — sidebar (si tu utilises un layout latéral)            */
@@ -151,14 +206,20 @@
   --ring:   oklch(0.55 0.22 295 / 40%); /* même teinte que primary */
 
   /* ---------------------------------------------------------------- */
-  /*  Accents projet (charts)                                          */
-  /*  Ordre : violet / cyan / amber / emerald / rose                   */
+  /*  Accents projet (10 familles)                                     */
+  /*  Ordre : violet / cyan / amber / emerald / rose / blue / indigo   */
+  /*          / fuchsia / teal / orange                                */
   /* ---------------------------------------------------------------- */
-  --chart-1: oklch(0.55 0.22 295);  /* violet  */
-  --chart-2: oklch(0.65 0.15 220);  /* cyan    */
-  --chart-3: oklch(0.75 0.16 75);   /* amber   */
-  --chart-4: oklch(0.65 0.16 155);  /* emerald */
-  --chart-5: oklch(0.60 0.22 15);   /* rose    */
+  --chart-1:  oklch(0.55 0.22 295);  /* violet  */
+  --chart-2:  oklch(0.65 0.15 220);  /* cyan    */
+  --chart-3:  oklch(0.75 0.16 75);   /* amber   */
+  --chart-4:  oklch(0.65 0.16 155);  /* emerald */
+  --chart-5:  oklch(0.60 0.22 15);   /* rose    */
+  --chart-6:  oklch(0.55 0.20 250);  /* blue    */
+  --chart-7:  oklch(0.52 0.22 275);  /* indigo  */
+  --chart-8:  oklch(0.62 0.24 320);  /* fuchsia */
+  --chart-9:  oklch(0.60 0.13 180);  /* teal    */
+  --chart-10: oklch(0.68 0.18 45);   /* orange  */
 
   /* ---------------------------------------------------------------- */
   /*  Rayon global                                                     */
@@ -225,13 +286,18 @@
   --ring:   oklch(0.70 0.20 295 / 50%);
 
   /* ---------------------------------------------------------------- */
-  /*  Accents projet (versions lumineuses)                             */
+  /*  Accents projet (10 familles, versions lumineuses)                */
   /* ---------------------------------------------------------------- */
-  --chart-1: oklch(0.70 0.20 295);
-  --chart-2: oklch(0.78 0.14 220);
-  --chart-3: oklch(0.82 0.15 75);
-  --chart-4: oklch(0.78 0.15 155);
-  --chart-5: oklch(0.72 0.20 15);
+  --chart-1:  oklch(0.70 0.20 295);  /* violet  */
+  --chart-2:  oklch(0.78 0.14 220);  /* cyan    */
+  --chart-3:  oklch(0.82 0.15 75);   /* amber   */
+  --chart-4:  oklch(0.78 0.15 155);  /* emerald */
+  --chart-5:  oklch(0.72 0.20 15);   /* rose    */
+  --chart-6:  oklch(0.72 0.18 250);  /* blue    */
+  --chart-7:  oklch(0.70 0.20 275);  /* indigo  */
+  --chart-8:  oklch(0.74 0.22 320);  /* fuchsia */
+  --chart-9:  oklch(0.75 0.12 180);  /* teal    */
+  --chart-10: oklch(0.78 0.16 45);   /* orange  */
 
   /* ---------------------------------------------------------------- */
   /*  Sidebar                                                          */

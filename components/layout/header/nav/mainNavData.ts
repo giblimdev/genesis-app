@@ -73,4 +73,11 @@ export const mainNavData: readonly NavItem[] = [
       },
     ],
   },
+  {
+    id: "nav-blog",
+    label: "Blog",
+    href: "/blog",
+    displayOrder: 40,
+    visible: true,
+  },
 ];

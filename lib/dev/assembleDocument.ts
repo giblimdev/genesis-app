@@ -7,9 +7,11 @@ generic:         true
 role:            Lit le contenu réel des fichiers sélectionnés et assemble un document
                  unique au format Option A (MD : "=== chemin ===") ou JSON (objet
                  { path: content }). Refuse tout chemin hors du projet (process.cwd()).
+
 flow:            assembleDocument(paths, format) → pour chaque path : path.resolve +
                  vérification confinement + fs.readFile → accumulation. Retourne
                  { document, fileCount, totalBytes, skipped }.
+
 ecosystem:       Dev = [
                    "@/app/api/back-studio/save-app/preview/route.ts",
                    "@/app/api/back-studio/save-app/save/route.ts",
@@ -92,7 +94,7 @@ export async function assembleDocument(
   let totalBytes = 0;
 
   for (const rel of paths) {
-    const abs = path.resolve(process.cwd(), rel);
+    const abs = path.resolve(/* turbopackIgnore: true */ process.cwd(), rel);
 
     if (!isInsideProject(abs)) {
       skipped.push({ path: rel, reason: "Hors du projet." });

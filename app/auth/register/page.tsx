@@ -56,7 +56,7 @@ export const metadata: Metadata = {
 
 export default async function RegisterPage() {
   const session = await getSession();
-  if (session) redirect("/");
+  if (session) redirect("/auth/welcome");
 
-  return <RegisterForm callbackUrl="/" />;
+  return <RegisterForm callbackUrl="/auth/login" />;
 }

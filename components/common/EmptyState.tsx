@@ -6,21 +6,31 @@ generic:         true
 
 role:            État vide générique, réutilisable pour toute liste sans contenu. Affiche
                  une pastille colorée, un titre, une description et une action optionnelle
-                 (CTA).
+                 (CTA). Le composant accepte les 10 accents du projet ; les classes de
+                 couleur sont importées du fichier central @/lib/design/accents.
 flow:            Composant pur → reçoit icon / title / description / action / accent.
-                 L'accent pilote la couleur de la pastille et du halo. Le slot action est
-                 rendu tel quel, sans wrapper restrictif.
-ecosystem:       UI = [
+                 L'accent pilote la couleur de la pastille et du halo.
+ecosystem:       DesignSystem = [
+                   "@/lib/design/accents.ts",
+                   "@/components/common/AccentPicker.tsx",
                    "@/components/common/EmptyState.tsx",
+                   "@/lib/validations/feature.ts",
+                   "@/lib/validations/persona.ts",
+                   "@/lib/validations/sprint.ts",
+                   "@/lib/validations/user-story.ts",
                  ]
-relatedFiles:    []
-imports:         ["react"]
+relatedFiles:    ["@/lib/design/accents.ts"]
+imports:         ["react", "@/lib/design/accents"]
 exports:         ["EmptyState", "EmptyStateProps", "EmptyStateAccent"]
-useBy:           ["@/app/user/project/page.tsx",
-                  "@/app/user/project/[slug]/page.tsx"]
+useBy:           ["@/app/back-studio/scrum/page.tsx",
+                  "@/app/back-studio/scrum/trash/page.tsx",
+                  "@/app/back-studio/scrum/[slug]/features/page.tsx",
+                  "@/app/back-studio/scrum/[slug]/personas/page.tsx",
+                  "@/app/back-studio/scrum/[slug]/backlog/page.tsx",
+                  "@/app/back-studio/scrum/[slug]/sprints/page.tsx"]
 
 userStories:     ["*auto-common-empty-state"]
-status:          wip
+status:          planned
 pathChecked:     ✘false
 metaDataChecked: ✘false
 scriptChecked:   ✘false
@@ -28,50 +38,19 @@ scriptChecked:   ✘false
 
 import type { ReactNode } from "react";
 
-/* ------------------------------------------------------------------ */
-/*  Accents                                                            */
-/* ------------------------------------------------------------------ */
-
-export type EmptyStateAccent = "violet" | "cyan" | "amber" | "emerald" | "rose";
-
-/**
- * Mapping accent → tokens @theme existants (chart-1..5).
- * Aucune couleur en dur : tout passe par les tokens du thème.
- */
-const ACCENT_CLASSES: Record<
-  EmptyStateAccent,
-  { ring: string; glow: string; icon: string }
-> = {
-  violet: {
-    ring: "ring-chart-1/20",
-    glow: "from-chart-1/10 via-transparent to-transparent",
-    icon: "from-chart-1 to-chart-1/80 text-white",
-  },
-  cyan: {
-    ring: "ring-chart-2/20",
-    glow: "from-chart-2/10 via-transparent to-transparent",
-    icon: "from-chart-2 to-chart-2/80 text-white",
-  },
-  amber: {
-    ring: "ring-chart-3/20",
-    glow: "from-chart-3/10 via-transparent to-transparent",
-    icon: "from-chart-3 to-chart-3/80 text-white",
-  },
-  emerald: {
-    ring: "ring-chart-4/20",
-    glow: "from-chart-4/10 via-transparent to-transparent",
-    icon: "from-chart-4 to-chart-4/80 text-white",
-  },
-  rose: {
-    ring: "ring-chart-5/20",
-    glow: "from-chart-5/10 via-transparent to-transparent",
-    icon: "from-chart-5 to-chart-5/80 text-white",
-  },
-};
+import {
+  ACCENT_GLOW_CLASS,
+  ACCENT_ICON_BG_STRONG_CLASS,
+  ACCENT_RING_SOFT_CLASS,
+  type ProjectAccent,
+} from "@/lib/design/accents";
 
 /* ------------------------------------------------------------------ */
-/*  Props                                                              */
+/*  Types                                                              */
 /* ------------------------------------------------------------------ */
+
+/** Accent accepté par EmptyState — miroir des 10 accents projet. */
+export type EmptyStateAccent = ProjectAccent;
 
 export type EmptyStateProps = {
   icon?: ReactNode;
@@ -92,20 +71,18 @@ export function EmptyState({
   action,
   accent = "violet",
 }: EmptyStateProps) {
-  const accentClasses = ACCENT_CLASSES[accent];
-
   return (
     <div className="relative overflow-hidden rounded-2xl border border-dashed border-border bg-card shadow-sm">
       {/* Halo décoratif */}
       <div
         aria-hidden
-        className={`pointer-events-none absolute inset-0 bg-gradient-to-b ${accentClasses.glow}`}
+        className={`pointer-events-none absolute inset-0 bg-gradient-to-b ${ACCENT_GLOW_CLASS[accent]}`}
       />
 
       <div className="relative flex flex-col items-center gap-5 px-6 py-14 text-center sm:px-10">
         {icon && (
           <div
-            className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${accentClasses.icon} shadow-lg ring-8 ${accentClasses.ring}`}
+            className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${ACCENT_ICON_BG_STRONG_CLASS[accent]} shadow-lg ring-8 ${ACCENT_RING_SOFT_CLASS[accent]}`}
           >
             {icon}
           </div>

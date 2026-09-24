@@ -5,16 +5,46 @@ type:            page
 generic:         false
 
 role:            Page de détail d'une user story : format standard, critères
-                 d'acceptation, DoD, fichiers liés, métadonnées, et actions
-                 (Éditer, Supprimer). Si c'est un Epic, affiche aussi ses enfants.
-flow:            Server Component async → params → findFirst projet + story +
-                 enfants (si Epic) → notFound si absent → affichage complet.
-ecosystem:       Dev = [
+                 d'acceptation, DoD, fichiers liés, tâches (liste DnD + import
+                 JSON en lot), et actions (Éditer, Supprimer). Si c'est un
+                 Epic, affiche aussi ses enfants.
+
+flow:            Server Component async → params → findFirst projet + story
+                 (avec tasks + assignee) + enfants (si Epic) → notFound si
+                 absent → affichage complet + <TaskList /> (avec bulkImport
+                 pré-lié à l'id de la story).
+
+ecosystem:       UserStory = [
+                   "@/app/actions/user-story/bulkImportUserStories.ts",
+                   "@/app/actions/user-story/createUserStory.ts",
+                   "@/app/actions/user-story/hardDeleteUserStory.ts",
+                   "@/app/actions/user-story/restoreUserStory.ts",
+                   "@/app/actions/user-story/softDeleteUserStory.ts",
+                   "@/app/actions/user-story/updateUserStory.ts",
+                   "@/app/back-studio/scrum/[slug]/backlog/[storySlug]/edit/page.tsx",
                    "@/app/back-studio/scrum/[slug]/backlog/[storySlug]/page.tsx",
+                   "@/app/back-studio/scrum/[slug]/backlog/new/page.tsx",
+                   "@/app/back-studio/scrum/[slug]/backlog/page.tsx",
+                   "@/app/back-studio/scrum/[slug]/backlog/trash/page.tsx",
+                   "@/components/user-story/DeleteUserStoryButton.tsx",
+                   "@/components/user-story/HardDeleteUserStoryButton.tsx",
+                   "@/components/user-story/RestoreUserStoryButton.tsx",
+                   "@/components/user-story/UserStoryCard.tsx",
+                   "@/components/user-story/UserStoryForm.tsx",
+                   "@/components/user-story/UserStoryMiniCard.tsx",
+                   "@/components/user-story/UserStoryPriorityBadge.tsx",
+                   "@/components/user-story/UserStoryStatusBadge.tsx",
+                   "@/components/user-story/UserStoryTree.tsx",
+                   "@/lib/design/accents.ts",
+                   "@/lib/json-templates/user-story.ts",
+                   "@/lib/user-story/json.ts",
+                   "@/lib/validations/user-story.ts",
                  ]
 relatedFiles:    ["@/components/user-story/DeleteUserStoryButton.tsx",
                   "@/components/user-story/UserStoryStatusBadge.tsx",
                   "@/components/user-story/UserStoryPriorityBadge.tsx",
+                  "@/components/task/TaskList.tsx",
+                  "@/app/actions/task/bulkImportTasks.ts",
                   "@/lib/user-story/json.ts"]
 imports:         ["next", "next/link", "next/navigation", "lucide-react",
                   "@/lib/prisma",
@@ -22,10 +52,14 @@ imports:         ["next", "next/link", "next/navigation", "lucide-react",
                   "@/components/user-story/DeleteUserStoryButton",
                   "@/components/user-story/UserStoryStatusBadge",
                   "@/components/user-story/UserStoryPriorityBadge",
+                  "@/components/task/TaskList",
+                  "@/app/actions/task/bulkImportTasks",
                   "@/lib/user-story/json"]
 exports:         ["default UserStoryDetailPage"]
 
-userStories:     ["*en tant que développeur je veux consulter le détail d'une user story"]
+userStories:     ["*en tant que développeur je veux consulter le détail d'une user story",
+                  "*en tant que développeur je veux voir les tâches d'une user story",
+                  "*en tant que développeur je veux importer des tâches en lot"]
 status:          planned
 pathChecked:     ✘false
 metaDataChecked: ✘false
@@ -42,12 +76,18 @@ import { buttonVariants } from "@/components/ui/button";
 import { DeleteUserStoryButton } from "@/components/user-story/DeleteUserStoryButton";
 import { UserStoryStatusBadge } from "@/components/user-story/UserStoryStatusBadge";
 import { UserStoryPriorityBadge } from "@/components/user-story/UserStoryPriorityBadge";
+import { TaskList } from "@/components/task/TaskList";
+import { bulkImportTasks } from "@/app/actions/task/bulkImportTasks";
 import {
   parseAcceptanceCriteria,
   parseStringList,
 } from "@/lib/user-story/json";
 
 type Params = Promise<{ slug: string; storySlug: string }>;
+
+/* ------------------------------------------------------------------ */
+/*  Metadata                                                           */
+/* ------------------------------------------------------------------ */
 
 export async function generateMetadata({
   params,
@@ -70,6 +110,10 @@ export async function generateMetadata({
     : { title: "User story introuvable" };
 }
 
+/* ------------------------------------------------------------------ */
+/*  Page                                                               */
+/* ------------------------------------------------------------------ */
+
 export default async function UserStoryDetailPage({
   params,
 }: {
@@ -85,6 +129,19 @@ export default async function UserStoryDetailPage({
 
   const story = await prisma.userStory.findFirst({
     where: { projectId: project.id, slug: storySlug, deletedAt: null },
+    include: {
+      tasks: {
+        orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          status: true,
+          estimateHours: true,
+          assignee: { select: { name: true } },
+        },
+      },
+    },
   });
   if (!story) notFound();
 
@@ -119,6 +176,10 @@ export default async function UserStoryDetailPage({
   const linkedFiles = parseStringList(story.linkedFiles);
 
   const base = `/back-studio/scrum/${project.slug}/backlog`;
+
+  /* Server Action pré-liée au userStoryId courant — passée à <TaskList />.
+     Utilisée par le bouton « Import JSON » de la liste des tâches. */
+  const bulkImport = bulkImportTasks.bind(null, story.id);
 
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6 md:py-12">
@@ -277,6 +338,22 @@ export default async function UserStoryDetailPage({
           </ul>
         </section>
       )}
+
+      {/* Tâches — avec import JSON en lot */}
+      <TaskList
+        userStoryId={story.id}
+        projectSlug={project.slug}
+        storySlug={story.slug}
+        tasks={story.tasks.map((t) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description,
+          status: t.status,
+          estimateHours: t.estimateHours,
+          assigneeName: t.assignee?.name ?? null,
+        }))}
+        bulkImport={bulkImport}
+      />
 
       {/* Enfants (si Epic) */}
       {children.length > 0 && (

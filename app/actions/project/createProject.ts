@@ -5,7 +5,7 @@ type:            action
 generic:         false
 
 role:            Server Action de création d'un projet. Vérifie la session, valide
-                 le payload, garantit l'unicité du slug via findFirst (le schéma
+                 le payload, garantit l'unicité du slug via findFreeSlug (le schéma
                  n'a plus @unique sur Project.slug), calcule le displayOrder,
                  connecte le créateur (ownerId + relation OwnedProjects).
 flow:            createProject(input) → getSession() → createProjectSchema.safeParse
@@ -22,7 +22,7 @@ relatedFiles:    ["@/lib/prisma.ts", "@/lib/auth/session.ts",
 imports:         ["server-only", "next/cache",
                   "@/lib/prisma", "@/lib/auth/session",
                   "@/lib/validations/project", "@/lib/actions/types",
-                  "@/utils/slugify"]
+                  "@/utils/slugify", "@/utils/slug"]
 exports:         ["createProject"]
 
 userStories:     ["*en tant que développeur je veux créer un projet"]
@@ -40,32 +40,8 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth/session";
 import { createProjectSchema } from "@/lib/validations/project";
 import { slugifyWithFallback } from "@/utils/slugify";
+import { findFreeSlug } from "@/utils/slug";
 import type { ActionResult } from "@/lib/actions/types";
-
-/* ------------------------------------------------------------------ */
-/*  Unicité applicative du slug (findFirst)                            */
-/* ------------------------------------------------------------------ */
-
-async function isSlugTaken(slug: string): Promise<boolean> {
-  const existing = await prisma.project.findFirst({
-    where: { slug, deletedAt: null },
-    select: { id: true },
-  });
-  return existing !== null;
-}
-
-async function findFreeSlug(base: string): Promise<string> {
-  let candidate = base;
-  for (let i = 2; i <= 999; i++) {
-    if (!(await isSlugTaken(candidate))) return candidate;
-    candidate = `${base}-${i}`;
-  }
-  return `${base}-${Date.now()}`;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Action                                                             */
-/* ------------------------------------------------------------------ */
 
 export async function createProject(
   input: unknown,
@@ -90,7 +66,13 @@ export async function createProject(
     ? parsed.data.slug.trim()
     : slugifyWithFallback(name, "project");
 
-  const slug = await findFreeSlug(baseSlug);
+  const slug = await findFreeSlug(baseSlug, async (candidate) => {
+    const existing = await prisma.project.findFirst({
+      where: { slug: candidate, deletedAt: null },
+      select: { id: true },
+    });
+    return existing !== null;
+  });
 
   const maxOrder = await prisma.project.aggregate({
     where: { deletedAt: null },

@@ -24,7 +24,7 @@ imports:         ["server-only", "next/cache",
                   "@/lib/auth/project-access",
                   "@/lib/validations/feature",
                   "@/lib/actions/types",
-                  "@/lib/utils/slugify"]
+                  "@/utils/slugify", "@/utils/slug"]
 exports:         ["updateFeature"]
 
 userStories:     ["*en tant que développeur je veux modifier une feature"]
@@ -43,32 +43,8 @@ import { getSession } from "@/lib/auth/session";
 import { assertProjectAccess } from "@/lib/auth/project-access";
 import { updateFeatureSchema } from "@/lib/validations/feature";
 import { slugifyWithFallback } from "@/utils/slugify";
+import { findFreeSlug } from "@/utils/slug";
 import type { ActionResult } from "@/lib/actions/types";
-
-async function isSlugTaken(
-  projectId: string,
-  slug: string,
-  excludeId: string,
-): Promise<boolean> {
-  const existing = await prisma.feature.findFirst({
-    where: { projectId, slug, NOT: { id: excludeId } },
-    select: { id: true },
-  });
-  return existing !== null;
-}
-
-async function findFreeSlug(
-  projectId: string,
-  base: string,
-  excludeId: string,
-): Promise<string> {
-  let candidate = base;
-  for (let i = 2; i <= 999; i++) {
-    if (!(await isSlugTaken(projectId, candidate, excludeId))) return candidate;
-    candidate = `${base}-${i}`;
-  }
-  return `${base}-${Date.now()}`;
-}
 
 export async function updateFeature(
   input: unknown,
@@ -106,9 +82,18 @@ export async function updateFeature(
   const accent = parsed.data.accent?.trim() || null;
 
   const explicitSlug = parsed.data.slug?.trim();
+
+  const isTaken = async (candidate: string): Promise<boolean> => {
+    const existing = await prisma.feature.findFirst({
+      where: { projectId, slug: candidate, NOT: { id } },
+      select: { id: true },
+    });
+    return existing !== null;
+  };
+
   const nextSlug = explicitSlug
-    ? await findFreeSlug(projectId, explicitSlug, id)
-    : await findFreeSlug(projectId, slugifyWithFallback(name, "feature"), id);
+    ? await findFreeSlug(explicitSlug, isTaken)
+    : await findFreeSlug(slugifyWithFallback(name, "feature"), isTaken);
 
   try {
     const feature = await prisma.feature.update({

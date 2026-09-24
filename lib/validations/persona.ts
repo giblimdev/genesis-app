@@ -1,35 +1,61 @@
 /*
 path :           lib/validations/persona.ts
+tag :            ["persona", "validation"]
 projectId:       <à fournir>
 type:            helper
 generic:         true
 
 role:            Schémas Zod du CRUD Persona : création, mise à jour, soft delete,
-                 restauration, suppression définitive. Source unique de vérité pour
-                 la validation des entrées. Expose aussi les accents autorisés.
+                 restauration, suppression définitive et import en lot. Les accents
+                 sont importés du fichier central @/lib/design/accents.
+
 flow:            createPersonaSchema.safeParse(payload) → CreatePersonaInput.
                  updatePersonaSchema.safeParse(payload) → UpdatePersonaInput.
                  personaIdSchema.safeParse(payload) → { id }.
                  hardDeletePersonaSchema.safeParse(payload) → { id, slug }.
-ecosystem:       Dev = [
-                   "@/app/back-studio/scrum/[slug]/personas/page.tsx",
+                 bulkImportPersonasSchema.safeParse(payload) → BulkImportPersonaInput[].
+
+ecosystem:       Persona = [
+                   "@/app/actions/persona/bulkImportPersonas.ts",
                    "@/app/actions/persona/createPersona.ts",
+                   "@/app/actions/persona/hardDeletePersona.ts",
+                   "@/app/actions/persona/restorePersona.ts",
+                   "@/app/actions/persona/softDeletePersona.ts",
+                   "@/app/actions/persona/updatePersona.ts",
+                   "@/app/back-studio/scrum/[slug]/personas/[personaSlug]/edit/page.tsx",
+                   "@/app/back-studio/scrum/[slug]/personas/[personaSlug]/page.tsx",
+                   "@/app/back-studio/scrum/[slug]/personas/new/page.tsx",
+                   "@/app/back-studio/scrum/[slug]/personas/page.tsx",
+                   "@/app/back-studio/scrum/[slug]/personas/trash/page.tsx",
+                   "@/components/persona/DeletePersonaButton.tsx",
+                   "@/components/persona/HardDeletePersonaButton.tsx",
+                   "@/components/persona/PersonaCard.tsx",
+                   "@/components/persona/PersonaForm.tsx",
+                   "@/components/persona/RestorePersonaButton.tsx",
+                   "@/lib/design/accents.ts",
+                   "@/lib/json-templates/persona.ts",
                    "@/lib/validations/persona.ts",
                  ]
-relatedFiles:    ["@/app/actions/persona/createPersona.ts",
-                  "@/app/actions/persona/updatePersona.ts",
-                  "@/app/actions/persona/softDeletePersona.ts",
-                  "@/app/actions/persona/restorePersona.ts",
-                  "@/app/actions/persona/hardDeletePersona.ts",
+relatedFiles:    ["@/lib/design/accents.ts",
+                  "@/lib/json-templates/persona.ts",
                   "@/components/persona/PersonaForm.tsx"]
-imports:         ["zod"]
+imports:         ["zod", "@/lib/design/accents"]
 exports:         ["PERSONA_ACCENTS", "PersonaAccent",
                   "createPersonaSchema", "CreatePersonaInput",
                   "updatePersonaSchema", "UpdatePersonaInput",
                   "personaIdSchema", "PersonaIdInput",
-                  "hardDeletePersonaSchema", "HardDeletePersonaInput"]
+                  "hardDeletePersonaSchema", "HardDeletePersonaInput",
+                  "bulkImportPersonasSchema", "BulkImportPersonaInput"]
+useBy:           ["@/app/actions/persona/createPersona.ts",
+                  "@/app/actions/persona/updatePersona.ts",
+                  "@/app/actions/persona/softDeletePersona.ts",
+                  "@/app/actions/persona/restorePersona.ts",
+                  "@/app/actions/persona/hardDeletePersona.ts",
+                  "@/app/actions/persona/bulkImportPersonas.ts",
+                  "@/components/persona/PersonaForm.tsx"]
 
-userStories:     ["*en tant que développeur je veux valider les données d'un persona"]
+userStories:     ["*en tant que développeur je veux valider les données d'un persona",
+                  "*en tant que développeur je veux importer des personas en lot"]
 status:          planned
 pathChecked:     ✘false
 metaDataChecked: ✘false
@@ -38,19 +64,14 @@ scriptChecked:   ✘false
 
 import { z } from "zod";
 
+import { PROJECT_ACCENTS } from "@/lib/design/accents";
+
 /* ------------------------------------------------------------------ */
-/*  Accents (miroir de la colonne String du schéma Prisma)             */
+/*  Accents — alias de la liste centrale                              */
 /* ------------------------------------------------------------------ */
 
-export const PERSONA_ACCENTS = [
-  "violet",
-  "cyan",
-  "amber",
-  "emerald",
-  "rose",
-] as const;
-
-export type PersonaAccent = (typeof PERSONA_ACCENTS)[number];
+export const PERSONA_ACCENTS = PROJECT_ACCENTS;
+export type PersonaAccent = (typeof PROJECT_ACCENTS)[number];
 
 /* ------------------------------------------------------------------ */
 /*  Champs partagés                                                    */
@@ -99,7 +120,7 @@ const iconField = z
   .or(z.literal(""));
 
 const accentField = z
-  .union([z.enum(PERSONA_ACCENTS), z.literal("")])
+  .union([z.enum(PROJECT_ACCENTS), z.literal("")])
   .optional();
 
 /* ------------------------------------------------------------------ */
@@ -150,3 +171,27 @@ export const hardDeletePersonaSchema = z.object({
 export type HardDeletePersonaInput = z.infer<
   typeof hardDeletePersonaSchema
 >;
+
+/* ------------------------------------------------------------------ */
+/*  Import en lot                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Item de bulk import — identique à createPersonaSchema SAUF que
+ * `projectId` est fourni par la page via `.bind()`, pas par le JSON.
+ */
+const bulkPersonaItemSchema = z.object({
+  name: nameField,
+  slug: slugField,
+  value: valueField,
+  keywordsInput: keywordsInputField,
+  icon: iconField,
+  accent: accentField,
+});
+
+export const bulkImportPersonasSchema = z
+  .array(bulkPersonaItemSchema)
+  .min(1, "Le tableau doit contenir au moins un persona.")
+  .max(500, "500 personas maximum par import.");
+
+export type BulkImportPersonaInput = z.infer<typeof bulkImportPersonasSchema>;

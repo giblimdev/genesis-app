@@ -5,20 +5,26 @@ type:            component
 generic:         false
 
 role:            Carte d'une feature dans la liste. Affiche nom, description tronquée,
-                 badge module, icône, accent, et actions (ouvrir, éditer, supprimer).
+                 badge module, accent, et actions (ouvrir, éditer, supprimer).
+                 Les classes de couleur d'accent sont importées du fichier central
+                 @/lib/design/accents.
 flow:            Client Component → reçoit les données sérialisées + projectSlug →
-                 rend une article cliquable avec les actions.
+                 rend un article cliquable avec les actions.
 ecosystem:       Dev = [
                    "@/components/feature/FeatureCard.tsx",
                    "@/app/back-studio/scrum/[slug]/features/page.tsx",
                  ]
-relatedFiles:    ["@/app/back-studio/scrum/[slug]/features/page.tsx",
+relatedFiles:    ["@/lib/design/accents.ts",
+                  "@/app/back-studio/scrum/[slug]/features/page.tsx",
                   "@/components/feature/DeleteFeatureButton.tsx",
-                  "@/components/feature/FeatureModuleBadge.tsx"]
+                  "@/components/feature/FeatureModuleBadge.tsx",
+                  "@/components/ui/button"]
 imports:         ["react", "next/link", "lucide-react",
                   "@/components/feature/FeatureModuleBadge",
                   "@/components/feature/DeleteFeatureButton",
-                  "@/components/ui/button"]
+                  "@/components/ui/button",
+                  "@/lib/design/accents",
+                  "@/lib/utils"]
 exports:         ["FeatureCard", "FeatureCardProps", "FeatureCardData"]
 
 userStories:     ["*en tant que développeur je veux visualiser une feature dans une carte"]
@@ -37,14 +43,10 @@ import { FeatureModuleBadge } from "./FeatureModuleBadge";
 import { DeleteFeatureButton } from "./DeleteFeatureButton";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-const ACCENT_RING: Record<string, string> = {
-  violet: "before:bg-chart-1",
-  cyan: "before:bg-chart-2",
-  amber: "before:bg-chart-3",
-  emerald: "before:bg-chart-4",
-  rose: "before:bg-chart-5",
-};
+import {
+  ACCENT_BAR_BEFORE_CLASS,
+  type ProjectAccent,
+} from "@/lib/design/accents";
 
 export type FeatureCardData = {
   readonly id: string;
@@ -63,7 +65,9 @@ export type FeatureCardProps = {
 
 export function FeatureCard({ feature, projectSlug }: FeatureCardProps) {
   const href = `/back-studio/scrum/${projectSlug}/features/${feature.slug}`;
-  const accentClass = feature.accent ? ACCENT_RING[feature.accent] : undefined;
+  const accentClass = feature.accent
+    ? ACCENT_BAR_BEFORE_CLASS[feature.accent as ProjectAccent]
+    : undefined;
 
   return (
     <article
